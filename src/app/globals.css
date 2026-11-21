@@ -1,0 +1,299 @@
+/* [임시 구현 · 규혁 브랜치] 소유: 연서 (globals.css)
+   Material Design 3 토큰. 색은 seed #B4532F(테라코타)로 material-color-utilities SchemeTonalSpot에서 생성.
+   퍼즐 온도 팔레트(fun/balanced/serious)는 SPEC 3.1 비주얼 톤 기준 TonalPalette 값. */
+
+@import 'tailwindcss';
+
+:root {
+  /* light scheme */
+  --md-sys-color-primary: #8f4c34;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #ffdbcf;
+  --md-sys-color-on-primary-container: #72351f;
+  --md-sys-color-secondary: #77574c;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #ffdbcf;
+  --md-sys-color-on-secondary-container: #5d4036;
+  --md-sys-color-tertiary: #6a5e2f;
+  --md-sys-color-on-tertiary: #ffffff;
+  --md-sys-color-tertiary-container: #f3e2a7;
+  --md-sys-color-on-tertiary-container: #51461a;
+  --md-sys-color-error: #ba1a1a;
+  --md-sys-color-on-error: #ffffff;
+  --md-sys-color-error-container: #ffdad6;
+  --md-sys-color-on-error-container: #93000a;
+  --md-sys-color-surface: #fff8f6;
+  --md-sys-color-on-surface: #231917;
+  --md-sys-color-surface-variant: #f5ded7;
+  --md-sys-color-on-surface-variant: #53433e;
+  --md-sys-color-surface-container-lowest: #ffffff;
+  --md-sys-color-surface-container-low: #fff1ec;
+  --md-sys-color-surface-container: #fceae5;
+  --md-sys-color-surface-container-high: #f7e4df;
+  --md-sys-color-surface-container-highest: #f1dfd9;
+  --md-sys-color-outline: #85736d;
+  --md-sys-color-outline-variant: #d8c2bb;
+  --md-sys-color-inverse-surface: #392e2b;
+  --md-sys-color-inverse-on-surface: #ffede8;
+  --md-sys-color-inverse-primary: #ffb59c;
+  --md-sys-color-scrim: #000000;
+
+  /* puzzle temperature palettes (tone 30 / 40 / 80 / 90 / 95) */
+  --puzzle-fun-30: #822715;
+  --puzzle-fun-40: #a13e2a;
+  --puzzle-fun-80: #ffb4a4;
+  --puzzle-fun-90: #ffdad3;
+  --puzzle-fun-95: #ffede9;
+  --puzzle-fun-accent: #55bd9f;
+  --puzzle-fun-accent-90: #c8f3e3;
+  --puzzle-balanced-30: #004b71;
+  --puzzle-balanced-40: #096493;
+  --puzzle-balanced-80: #8fcdff;
+  --puzzle-balanced-90: #cbe6ff;
+  --puzzle-balanced-95: #e6f2ff;
+  --puzzle-serious-30: #2b4675;
+  --puzzle-serious-40: #445e8e;
+  --puzzle-serious-80: #acc7fd;
+  --puzzle-serious-90: #d7e2ff;
+  --puzzle-serious-95: #ecf0ff;
+  --puzzle-serious-ink: #262b33;
+
+  /* shape */
+  --md-sys-shape-xs: 4px;
+  --md-sys-shape-sm: 8px;
+  --md-sys-shape-md: 12px;
+  --md-sys-shape-lg: 16px;
+  --md-sys-shape-xl: 28px;
+
+  /* motion (M3 emphasized / standard) */
+  --md-sys-motion-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --md-sys-motion-emphasized-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --md-sys-motion-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --md-sys-color-primary: #ffb59c;
+    --md-sys-color-on-primary: #55200b;
+    --md-sys-color-primary-container: #72351f;
+    --md-sys-color-on-primary-container: #ffdbcf;
+    --md-sys-color-secondary: #e7bdb0;
+    --md-sys-color-on-secondary: #442a21;
+    --md-sys-color-secondary-container: #5d4036;
+    --md-sys-color-on-secondary-container: #ffdbcf;
+    --md-sys-color-tertiary: #d6c68d;
+    --md-sys-color-on-tertiary: #393005;
+    --md-sys-color-tertiary-container: #51461a;
+    --md-sys-color-on-tertiary-container: #f3e2a7;
+    --md-sys-color-error: #ffb4ab;
+    --md-sys-color-on-error: #690005;
+    --md-sys-color-error-container: #93000a;
+    --md-sys-color-on-error-container: #ffdad6;
+    --md-sys-color-surface: #1a110f;
+    --md-sys-color-on-surface: #f1dfd9;
+    --md-sys-color-surface-variant: #53433e;
+    --md-sys-color-on-surface-variant: #d8c2bb;
+    --md-sys-color-surface-container-lowest: #140c0a;
+    --md-sys-color-surface-container-low: #231917;
+    --md-sys-color-surface-container: #271d1a;
+    --md-sys-color-surface-container-high: #322824;
+    --md-sys-color-surface-container-highest: #3d322f;
+    --md-sys-color-outline: #a08d87;
+    --md-sys-color-outline-variant: #53433e;
+    --md-sys-color-inverse-surface: #f1dfd9;
+    --md-sys-color-inverse-on-surface: #392e2b;
+    --md-sys-color-inverse-primary: #8f4c34;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-primary: var(--md-sys-color-primary);
+  --color-on-primary: var(--md-sys-color-on-primary);
+  --color-primary-container: var(--md-sys-color-primary-container);
+  --color-on-primary-container: var(--md-sys-color-on-primary-container);
+  --color-secondary: var(--md-sys-color-secondary);
+  --color-on-secondary: var(--md-sys-color-on-secondary);
+  --color-secondary-container: var(--md-sys-color-secondary-container);
+  --color-on-secondary-container: var(--md-sys-color-on-secondary-container);
+  --color-tertiary: var(--md-sys-color-tertiary);
+  --color-on-tertiary: var(--md-sys-color-on-tertiary);
+  --color-tertiary-container: var(--md-sys-color-tertiary-container);
+  --color-on-tertiary-container: var(--md-sys-color-on-tertiary-container);
+  --color-error: var(--md-sys-color-error);
+  --color-on-error: var(--md-sys-color-on-error);
+  --color-error-container: var(--md-sys-color-error-container);
+  --color-on-error-container: var(--md-sys-color-on-error-container);
+  --color-surface: var(--md-sys-color-surface);
+  --color-on-surface: var(--md-sys-color-on-surface);
+  --color-surface-variant: var(--md-sys-color-surface-variant);
+  --color-on-surface-variant: var(--md-sys-color-on-surface-variant);
+  --color-surface-container-lowest: var(--md-sys-color-surface-container-lowest);
+  --color-surface-container-low: var(--md-sys-color-surface-container-low);
+  --color-surface-container: var(--md-sys-color-surface-container);
+  --color-surface-container-high: var(--md-sys-color-surface-container-high);
+  --color-surface-container-highest: var(--md-sys-color-surface-container-highest);
+  --color-outline: var(--md-sys-color-outline);
+  --color-outline-variant: var(--md-sys-color-outline-variant);
+  --color-inverse-surface: var(--md-sys-color-inverse-surface);
+  --color-inverse-on-surface: var(--md-sys-color-inverse-on-surface);
+  --color-inverse-primary: var(--md-sys-color-inverse-primary);
+  --color-scrim: var(--md-sys-color-scrim);
+
+  --radius-m3-xs: var(--md-sys-shape-xs);
+  --radius-m3-sm: var(--md-sys-shape-sm);
+  --radius-m3-md: var(--md-sys-shape-md);
+  --radius-m3-lg: var(--md-sys-shape-lg);
+  --radius-m3-xl: var(--md-sys-shape-xl);
+
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', system-ui, sans-serif;
+  --font-mono: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --ease-m3: var(--md-sys-motion-emphasized);
+  --ease-m3-decel: var(--md-sys-motion-emphasized-decel);
+}
+
+html {
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-feature-settings: 'tnum' 0;
+  letter-spacing: -0.005em;
+  min-height: 100dvh;
+}
+
+/* ── M3 type scale (Korean-tuned line heights) ── */
+@utility display-large { font-size: 57px; line-height: 64px; font-weight: 400; letter-spacing: -0.02em; }
+@utility display-medium { font-size: 45px; line-height: 52px; font-weight: 400; letter-spacing: -0.015em; }
+@utility display-small { font-size: 36px; line-height: 44px; font-weight: 400; letter-spacing: -0.01em; }
+@utility headline-large { font-size: 32px; line-height: 40px; font-weight: 500; letter-spacing: -0.01em; }
+@utility headline-medium { font-size: 28px; line-height: 36px; font-weight: 500; letter-spacing: -0.01em; }
+@utility headline-small { font-size: 24px; line-height: 32px; font-weight: 500; letter-spacing: -0.005em; }
+@utility title-large { font-size: 22px; line-height: 28px; font-weight: 500; }
+@utility title-medium { font-size: 16px; line-height: 24px; font-weight: 600; letter-spacing: 0.005em; }
+@utility title-small { font-size: 14px; line-height: 20px; font-weight: 600; letter-spacing: 0.005em; }
+@utility body-large { font-size: 16px; line-height: 26px; font-weight: 400; }
+@utility body-medium { font-size: 14px; line-height: 22px; font-weight: 400; }
+@utility body-small { font-size: 12px; line-height: 18px; font-weight: 400; }
+@utility label-large { font-size: 14px; line-height: 20px; font-weight: 600; letter-spacing: 0.005em; }
+@utility label-medium { font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: 0.02em; }
+@utility label-small { font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.03em; }
+@utility tabular { font-variant-numeric: tabular-nums; }
+
+/* ── State layer: hover 8% / focus·pressed 10% (M3) ── */
+.state-layer { position: relative; isolation: isolate; overflow: hidden; }
+.state-layer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms var(--md-sys-motion-standard);
+  z-index: -1;
+}
+@media (hover: hover) {
+  .state-layer:hover::before { opacity: 0.08; }
+}
+.state-layer:focus-visible::before,
+.state-layer:active::before { opacity: 0.1; }
+.state-layer:disabled::before { opacity: 0; }
+
+:focus-visible {
+  outline: 3px solid var(--md-sys-color-secondary);
+  outline-offset: 2px;
+}
+
+/* Material Symbols */
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  user-select: none;
+  flex-shrink: 0;
+}
+.material-symbols-rounded.filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+
+/* range input as M3 slider */
+input[type='range'].m3-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 44px;
+  background: transparent;
+  width: 100%;
+}
+input[type='range'].m3-slider::-webkit-slider-runnable-track {
+  height: 16px;
+  border-radius: 8px;
+  background: linear-gradient(
+    to right,
+    var(--md-sys-color-primary) 0 var(--fill, 50%),
+    var(--md-sys-color-secondary-container) var(--fill, 50%) 100%
+  );
+}
+input[type='range'].m3-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 4px;
+  height: 44px;
+  margin-top: -14px;
+  border-radius: 2px;
+  background: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 6px var(--md-sys-color-surface);
+}
+input[type='range'].m3-slider::-moz-range-track {
+  height: 16px;
+  border-radius: 8px;
+  background: var(--md-sys-color-secondary-container);
+}
+input[type='range'].m3-slider::-moz-range-progress {
+  height: 16px;
+  border-radius: 8px;
+  background: var(--md-sys-color-primary);
+}
+input[type='range'].m3-slider::-moz-range-thumb {
+  width: 4px;
+  height: 44px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--md-sys-color-primary);
+}
+
+@keyframes m3-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes m3-scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+.enter { animation: m3-fade-up 360ms var(--md-sys-motion-emphasized-decel) both; }
+.enter-scale { animation: m3-scale-in 260ms var(--md-sys-motion-emphasized-decel) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  html, body { background: #fff; color: #000; }
+  .print-sheet { box-shadow: none !important; border: 0 !important; padding: 0 !important; }
+}
