@@ -2,6 +2,7 @@
 
 // [임시 구현 · 규혁 브랜치] 소유: 연서 (src/components/)
 // 계약: yeonseo-slides-ui.md 3장 ② — Props { team: TeamCandidate; unlocked?: boolean }
+// + 선택 Props: pieceCodes(멤버별 16유형 조각 — 없으면 응답에서 추정)
 // 4인 퍼즐 2×2 맞물림 + puzzlePairs 보완 화살표 + evidenceTags 칩 + biggestGapNote 앰버 박스 + minMemberFit
 // unlocked=true(팀 확정 화면)에서는 분석 정보 없이 퍼즐이 합쳐지는 연출만 보여 줍니다.
 
@@ -9,50 +10,32 @@ import { useEffect, useState } from 'react';
 import type { TeamCandidate } from '@/types/ondo';
 import { SKILL_CARD_BY_ID } from '@/data/constants';
 import { cx, Icon, InfoTip } from '@/components/m3';
-import { type EdgeType, PIECE_PAD_RATIO, PuzzlePiece } from '@/components/PuzzlePiece';
+import { PuzzlePiece } from '@/components/PuzzlePiece';
+import { PIECE_TYPES, type PieceCode, derivePieceCode, edgesFromCode } from '@/store/pieceTypes';
 
-// 2×2에서 맞닿는 변이 돌기/홈으로 맞물리도록 고정 배치 [위, 오른쪽, 아래, 왼쪽]
-const LAYOUT: [EdgeType, EdgeType, EdgeType, EdgeType][] = [
-  [0, 1, -1, 0],
-  [0, 0, 1, -1],
-  [1, -1, 0, 0],
-  [-1, 0, 0, 1],
-];
-
-function Pieces({ team, merged, size }: { team: TeamCandidate; merged: boolean; size: number }) {
-  // 조각 SVG = 여백 + 본체 + 여백. 합체 시 본체끼리 정확히 맞닿도록 절대 위치로 배치
-  const pad = size * PIECE_PAD_RATIO;
-  const body = size - pad * 2;
-  const spread = merged ? 0 : 14;
-  const box = size + body + spread;
+/**
+ * 2×2 배치. 다른 화면(내 조각 결과·팀 드롭)과 같은 모양이 되도록 각자의 16유형 조각을 온전한 모양 그대로 그립니다.
+ * (예전처럼 바깥 변을 평평하게 깎아 한 장의 사각형으로 만들지 않음)
+ */
+function Pieces({ team, codes, merged, size }: { team: TeamCandidate; codes: PieceCode[]; merged: boolean; size: number }) {
   return (
-    <div className="relative mx-auto shrink-0" style={{ width: box, height: box }}>
-      {team.members.slice(0, 4).map((m, i) => {
-        const col = i % 2;
-        const row = Math.floor(i / 2);
-        return (
-          <div
-            key={m.id}
-            className="absolute left-0 top-0 transition-transform duration-700 ease-m3"
-            style={{ transform: `translate(${col * (body + spread)}px, ${row * (body + spread)}px)` }}
-          >
-            <PuzzlePiece
-              mode={m.temperatureMode}
-              edges={LAYOUT[i]}
-              label={m.nickname.length > 6 ? `${m.nickname.slice(0, 6)}…` : m.nickname}
-              sublabel={i === 0 ? '나' : m.collabType}
-              labelSize={12}
-              size={size}
-              highlight={i === 0}
-            />
-          </div>
-        );
-      })}
+    <div className="mx-auto grid w-max grid-cols-2 transition-[gap] duration-700 ease-m3" style={{ gap: merged ? 4 : 28 }}>
+      {team.members.slice(0, 4).map((m, i) => (
+        <div key={m.id} className="flex flex-col items-center">
+          <PuzzlePiece mode={m.temperatureMode} edges={edgesFromCode(codes[i])} size={size} highlight={i === 0} />
+          <p className="title-small text-on-surface">
+            {PIECE_TYPES[codes[i]].name}
+            {i === 0 && <span className="ml-1 text-primary">나</span>}
+          </p>
+          <p className="max-w-[9rem] truncate label-small text-on-surface-variant">{m.nickname}</p>
+        </div>
+      ))}
     </div>
   );
 }
 
-export function TeamPuzzleMerge({ team, unlocked }: { team: TeamCandidate; unlocked?: boolean }) {
+export function TeamPuzzleMerge({ team, unlocked, pieceCodes }: { team: TeamCandidate; unlocked?: boolean; pieceCodes?: PieceCode[] }) {
+  const codes = pieceCodes ?? team.members.map((m) => derivePieceCode(m));
   const [merged, setMerged] = useState(!unlocked);
   useEffect(() => {
     if (!unlocked) return;
@@ -61,7 +44,7 @@ export function TeamPuzzleMerge({ team, unlocked }: { team: TeamCandidate; unloc
     return () => clearTimeout(t);
   }, [unlocked, team.id]);
 
-  if (unlocked) return <Pieces team={team} merged={merged} size={190} />;
+  if (unlocked) return <Pieces team={team} codes={codes} merged={merged} size={150} />;
 
   return (
     <div className="@container space-y-5">
@@ -84,7 +67,7 @@ export function TeamPuzzleMerge({ team, unlocked }: { team: TeamCandidate; unloc
       </div>
 
       <div className="grid gap-6 @xl:grid-cols-[auto_1fr] @xl:items-center">
-        <Pieces team={team} merged size={150} />
+        <Pieces team={team} codes={codes} merged size={104} />
         <ul className="space-y-1">
           {team.puzzlePairs.slice(0, 5).map((p, i) => (
             <li key={i} className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-m3-sm bg-surface px-3 py-2">

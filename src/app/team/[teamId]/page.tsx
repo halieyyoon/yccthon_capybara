@@ -11,6 +11,7 @@ import { Button, cx, Dialog, Icon, InfoTip, LinearProgress, Monogram, Snackbar }
 import { AppShell, NeedsUser } from '@/components/AppShell';
 import { TeamPuzzleMerge } from '@/components/TeamPuzzleMerge';
 import { useHydrated, useOndoStore } from '@/store/useOndoStore';
+import { pieceOf } from '@/store/pieceTypes';
 
 function CvView({ m }: { m: UserProfile }) {
   const cv = m.cv;
@@ -61,6 +62,7 @@ export default function TeamPage() {
   const meeting = useOndoStore((s) => s.avatarMeetings[teamId]);
   const accepted = useOndoStore((s) => s.consentCount[teamId] ?? 1);
   const unlockTeam = useOndoStore((s) => s.unlockTeam);
+  const myPiece = useOndoStore((s) => s.myPiece);
 
   const [revealed, setRevealed] = useState(false);
   const [cvOf, setCvOf] = useState<UserProfile | null>(null);
@@ -159,7 +161,7 @@ export default function TeamPage() {
         </div>
 
         <div className="mt-8 flex justify-center">
-          <TeamPuzzleMerge team={{ ...team, members }} unlocked />
+          <TeamPuzzleMerge team={{ ...team, members }} unlocked pieceCodes={members.map((m) => pieceOf(m, user.id, myPiece))} />
         </div>
 
         <ul className="mt-10 grid gap-3 sm:grid-cols-2">
