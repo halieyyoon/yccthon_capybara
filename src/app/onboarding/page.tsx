@@ -32,6 +32,8 @@ import {
   TEMPERATURE_MODES,
   deriveCollabType,
 } from '@/data/constants';
+import { basisText } from '@/data/references';
+import { basisOf, feedsOf } from '@/data/surveyBasis';
 import { Button, Chip, cx, Icon, IconButton, InfoTip, LinearProgress, SegmentedButton, Switch, TextField } from '@/components/m3';
 import { PuzzlePiece } from '@/components/PuzzlePiece';
 import { useOndoStore } from '@/store/useOndoStore';
@@ -174,6 +176,10 @@ function PieceQuestionScreen({
           <span className="tabular">{q.id}</span> · {section.title}
         </p>
         <h1 className="mt-1 headline-medium">{q.question}</h1>
+        <p className="mt-1 flex items-center gap-1 body-small text-on-surface-variant">
+          반영되는 곳: {feedsOf(q).join(' · ')}
+          <InfoTip label="이 질문의 근거" align="start">{basisText(basisOf(q))}</InfoTip>
+        </p>
 
         {showPiece && (
           <div className="mt-6 grid place-items-center rounded-m3-xl bg-surface py-5">

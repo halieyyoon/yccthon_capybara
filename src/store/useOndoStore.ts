@@ -225,7 +225,13 @@ export const useOndoStore = create<OndoState>()(
     }),
     {
       name: 'ondo_mvp_state_v1',
-      version: 1,
+      // v2 (혜원): TeamCandidate에 explanations·outlier·cautions 추가 → 이전에 저장된 추천 결과는 비우고 다시 계산
+      version: 2,
+      migrate: (persisted, version) => {
+        const s = persisted as Record<string, unknown>;
+        if (version < 2) return { ...s, recommendedTeams: [], clusteredPoints: [], selectedContestId: null };
+        return s;
+      },
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
         currentUser: s.currentUser,

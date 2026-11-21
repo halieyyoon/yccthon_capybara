@@ -80,9 +80,11 @@ function TeamDropView({
       </div>
 
       <p className="mt-4 flex items-baseline gap-2">
-        <span className="tabular display-small text-primary">{Math.round(team.matchScore * 100)}</span>
-        <span className="body-medium text-on-surface-variant">점 퍼즐 완성도 · 가장 잘 맞는 2 + 2 모양</span>
-        <InfoTip align="end">임시 가중치로 낸 조합 지수를 100점으로 바꾼 값이에요. 정확도나 궁합 확률이 아니에요. ◆는 맞물리는 변, ○는 포개지는 변이에요.</InfoTip>
+        <span className="tabular display-small text-primary">
+          {team.explanations.reduce((n, e) => n + e.okCount, 0)}/{team.explanations.reduce((n, e) => n + e.total, 0)}
+        </span>
+        <span className="body-medium text-on-surface-variant">항목에서 응답이 맞음 · 가장 잘 맞는 2 + 2 모양</span>
+        <InfoTip align="end">목표·AI·협업 문항 중 4명의 응답 차이가 1점 이하인 수와, 대회에 필요한 역할을 채운 수를 더한 값이에요. 정확도나 궁합 확률이 아니에요. ◆는 맞물리는 변, ○는 포개지는 변이에요.</InfoTip>
       </p>
       <p className="mt-3 rounded-m3-md bg-surface-container-low p-4 body-medium text-on-surface">{layout.note}</p>
 

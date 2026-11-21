@@ -4,34 +4,53 @@
 // - PAM(k-medoids, k=5)은 결정론적 BUILD 초기화 + SWAP으로 수행합니다.
 // - 2D 좌표는 고전적 MDS(거듭제곱법)로 만든 탐색용 시각화이며, 2D 거리를 적합도 근거로 쓰지 않습니다.
 // - 최종 추천은 군집이 아니라 팀 수준 점수(임시 가중치 v1.0)로 결정합니다.
+// - [v1.1 혜원] 팀 점수는 근거가 있는 4지표만 사용 (docs/proposal/09 3장).
+//   목표·AI·작업 = separation(차이가 작을수록), 역량 = variety(역할을 채울수록) — Harrison & Klein(2007)
+//   지뢰 충돌·16유형 매트릭스·AI 허용도 큰 차이는 점수에서 빼고 cautions(첫 회의에서 확인할 점)로만 보여 줌.
 
 import type {
   ClusteredPoint,
   Contest,
   Features27,
+  MemberOutlier,
+  MetricExplanation,
+  MetricItemEvidence,
   PuzzleMatchPair,
+  RoleId,
   TeamCandidate,
   UserProfile,
 } from '@/types/ondo';
 import {
+  COMPAT_LEVEL_META,
   COMPATIBILITY_MATRIX_16X16,
   FEATURE_META_27,
   type FeatureGroup,
   type FeatureKey,
   ROLE_LABEL,
   SKILL_CARD_BY_ID,
+  WEAKNESS_COVERED_BY,
 } from '@/data/constants';
+import type { RefId } from '@/data/references';
 
 const GROUPS: FeatureGroup[] = ['personality', 'goal', 'conflict', 'ai', 'work', 'skill'];
 const KEYS_BY_GROUP = Object.fromEntries(
   GROUPS.map((g) => [g, FEATURE_META_27.filter((m) => m.group === g)]),
 ) as Record<FeatureGroup, typeof FEATURE_META_27>;
 
+/** 08번 문서 5.3 임시 가중치(0.30/0.25/0.20 일정/0.15/0.10)에서 일정을 빼고 0.80으로 나눠 재조정 — 실증값 아님 */
 export const SCORE_WEIGHTS = {
   goalAlignment: 0.375,
   roleCoverage: 0.3125,
   aiPolicyAlignment: 0.1875,
   collaborationCompatibility: 0.125,
+} as const;
+
+/** 화면 '일치/채움' 판정 기준 (자체 규칙 v1.1) */
+export const MATCH_RULES = {
+  /** 1~5 응답에서 팀원 간 최고−최저 차이가 이 값 이하이면 '일치' */
+  separationMaxGap: 1,
+  /** 0~4 숙련도에서 팀 최고값이 이 값 이상이면 '역할 채움' (3 = 능숙) */
+  roleMinLevel: 3,
 } as const;
 
 const OPTIONAL_KEYS: FeatureKey[] = FEATURE_META_27.filter((m) => m.optional).map((m) => m.key);
@@ -197,61 +216,127 @@ export function runClusterAnalysis(currentUser: UserProfile, pool: UserProfile[]
 
 const range = (vals: number[]) => Math.max(...vals) - Math.min(...vals);
 const mean = (vals: number[]) => vals.reduce((a, b) => a + b, 0) / (vals.length || 1);
-const std = (vals: number[]) => {
-  const m = mean(vals);
-  return Math.sqrt(mean(vals.map((v) => (v - m) ** 2)));
-};
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
 const GOAL_KEYS: FeatureKey[] = ['winning_orientation', 'learning_priority', 'delivery_priority', 'continuation_intent'];
 const AI_KEYS: FeatureKey[] = ['ai_use_permissiveness', 'ai_verification_strictness', 'ai_disclosure_preference'];
 const WORK_KEYS: FeatureKey[] = ['prototyping_preference', 'risk_appetite', 'quality_priority', 'decision_structure_preference'];
-const CONFLICT_KEYS: FeatureKey[] = ['integrating', 'obliging', 'dominating', 'avoiding', 'compromising'];
+const ALL_ROLES: RoleId[] = ['planning', 'frontend', 'backend', 'design', 'data_ai', 'presentation'];
 
+const LABEL_BY_KEY = Object.fromEntries(FEATURE_META_27.map((m) => [m.key, m.label])) as Record<FeatureKey, string>;
 const num = (u: UserProfile, k: FeatureKey) => u.features27[k] as number;
 
-function goalAlignment(team: UserProfile[]) {
-  return clamp01(1 - mean(GOAL_KEYS.map((k) => std(team.map((u) => num(u, k))))) / 2);
+/** separation 지표: 문항마다 팀 내 최고−최저 차이. 연속값 = 1 − 평균 차이/4 (1~5 척도의 최대 차이 4) */
+function separationMetric(
+  team: UserProfile[],
+  keys: FeatureKey[],
+  meta: { metric: MetricExplanation['metric']; label: string; why: string; refs: RefId[] },
+): MetricExplanation {
+  const items: MetricItemEvidence[] = keys.map((k) => {
+    const vals = team.map((u) => num(u, k));
+    const gap = range(vals);
+    return {
+      key: k,
+      label: LABEL_BY_KEY[k],
+      values: team.map((u) => ({ nickname: u.nickname, value: u.features27[k] })),
+      stat: gap,
+      ok: gap <= MATCH_RULES.separationMaxGap,
+    };
+  });
+  return {
+    ...meta,
+    diversityType: 'separation',
+    okCount: items.filter((i) => i.ok).length,
+    total: items.length,
+    value: clamp01(1 - mean(items.map((i) => i.stat)) / 4),
+    weight: SCORE_WEIGHTS[meta.metric],
+    rule: `${team.length}명의 응답 차이(최고−최저)가 ${MATCH_RULES.separationMaxGap}점 이하인 문항을 '일치'로 세요. 1~5점 문항과 이지선다 문항(2·5점 등으로 환산)이 섞여 있어요.`,
+    items,
+  };
+}
+
+/** variety 지표: 대회 필수 역할마다 팀 최고 숙련도. 연속값 = 평균(min(최고, 3)/3) — '누군가 한 명은 능숙'이면 충분 */
+function roleMetric(team: UserProfile[], contest: Contest): MetricExplanation {
+  const roles = contest.requiredRoles.length ? contest.requiredRoles : ALL_ROLES;
+  const items: MetricItemEvidence[] = roles.map((r) => {
+    const best = Math.max(...team.map((u) => u.features27[r]));
+    return {
+      key: r,
+      label: ROLE_LABEL[r],
+      values: team.map((u) => ({ nickname: u.nickname, value: u.features27[r] })),
+      stat: best,
+      ok: best >= MATCH_RULES.roleMinLevel,
+    };
+  });
+  return {
+    metric: 'roleCoverage',
+    label: '역량 보완',
+    diversityType: 'variety',
+    okCount: items.filter((i) => i.ok).length,
+    total: items.length,
+    value: clamp01(mean(items.map((i) => Math.min(i.stat, MATCH_RULES.roleMinLevel) / MATCH_RULES.roleMinLevel))),
+    weight: SCORE_WEIGHTS.roleCoverage,
+    rule: `이 대회에 필요한 역할마다 역량 ${MATCH_RULES.roleMinLevel}(능숙) 이상인 팀원이 한 명이라도 있으면 '채움'으로 세요. 역량은 온보딩 D2에서 본인이 매긴 값이에요.`,
+    why: '역할은 비슷할 필요가 없고 서로 달라서 빈칸이 없을수록 좋아요. 그래서 다른 지표와 반대로 계산해요.',
+    refs: ['HARRISON2007', 'LAYTON2010'],
+    items,
+  };
+}
+
+function explainTeam(team: UserProfile[], contest: Contest): MetricExplanation[] {
+  return [
+    separationMetric(team, GOAL_KEYS, {
+      metric: 'goalAlignment',
+      label: '목표 일치',
+      why: '목표와 기대가 맞는 집단일수록 결과가 좋다는 메타분석이 있어 가장 큰 비중을 둬요.',
+      refs: ['KRISTOF2005', 'HARRISON2007'],
+    }),
+    roleMetric(team, contest),
+    separationMetric(team, AI_KEYS, {
+      metric: 'aiPolicyAlignment',
+      label: 'AI 규범',
+      why: 'AI를 어디까지 쓰고 누가 검증할지 기준이 다르면 초반에 부딪히기 쉬워 따로 봐요.',
+      refs: ['HARRISON2007'],
+    }),
+    separationMetric(team, WORK_KEYS, {
+      metric: 'collaborationCompatibility',
+      label: '협업 방식',
+      why: '먼저 만들지 먼저 정할지, 완성도와 속도 중 무엇을 앞세울지의 차이예요.',
+      refs: ['HARRISON2007'],
+    }),
+  ];
 }
 
 function puzzlePairsFor(team: UserProfile[]): PuzzleMatchPair[] {
   const pairs: PuzzleMatchPair[] = [];
   for (const owner of team) {
     for (const w of owner.weaknesses) {
-      const axis = SKILL_CARD_BY_ID[w].axis;
-      const exact = team.find((m) => m.id !== owner.id && m.strengths.includes(w));
-      const byAxis =
-        exact ??
-        team.find((m) => m.id !== owner.id && m.strengths.some((s) => SKILL_CARD_BY_ID[s].axis === axis));
-      if (!byAxis) continue;
-      const strengthId = exact ? w : byAxis.strengths.find((s) => SKILL_CARD_BY_ID[s].axis === axis)!;
+      // 매핑표 순서대로(첫 번째 = 같은 카드) 덮어 줄 팀원을 찾음. 매핑에 없는 강점으로는 연결하지 않음
+      let found: { member: UserProfile; strengthId: typeof w } | undefined;
+      for (const s of WEAKNESS_COVERED_BY[w]) {
+        const member = team.find((m) => m.id !== owner.id && m.strengths.includes(s));
+        if (member) {
+          found = { member, strengthId: s };
+          break;
+        }
+      }
+      if (!found) continue;
       pairs.push({
         weaknessOwnerId: owner.id,
         weaknessOwnerNickname: owner.nickname,
         weaknessId: w,
-        coveredById: byAxis.id,
-        coveredByNickname: byAxis.nickname,
-        strengthId,
+        coveredById: found.member.id,
+        coveredByNickname: found.member.nickname,
+        strengthId: found.strengthId,
+        matchType: found.strengthId === w ? 'exact' : 'mapped',
       });
     }
   }
   return pairs;
 }
 
-function roleCoverage(team: UserProfile[], contest: Contest, pairs: PuzzleMatchPair[]) {
-  const roles = contest.requiredRoles.length ? contest.requiredRoles : (['planning', 'frontend', 'backend', 'design', 'data_ai', 'presentation'] as const);
-  const coverage = mean(roles.map((r) => Math.max(...team.map((u) => u.features27[r])) / 4));
-  const puzzleRate = pairs.length / (team.length * 2);
-  return clamp01(0.7 * coverage + 0.3 * puzzleRate);
-}
-
-function aiPolicyAlignment(team: UserProfile[]) {
-  const base = 1 - mean(AI_KEYS.map((k) => range(team.map((u) => num(u, k))))) / 4;
-  const severe = range(team.map((u) => num(u, 'ai_use_permissiveness'))) >= 3 ? 0.15 : 0;
-  return clamp01(base - severe);
-}
-
-function dealBreakerConflicts(team: UserProfile[]): string[] {
+/** 점수에 넣지 않는 주의 사항 (근거가 약해 감점 대신 '첫 회의에서 확인할 점'으로만 표시) */
+function cautionsFor(team: UserProfile[]): string[] {
   const notes: string[] = [];
   for (const u of team) {
     for (const other of team) {
@@ -259,43 +344,35 @@ function dealBreakerConflicts(team: UserProfile[]): string[] {
       const x = other.features27;
       for (const d of u.dealBreakers) {
         if (d === 'blind_ai_copy' && x.ai_use_permissiveness >= 5 && x.ai_verification_strictness <= 2)
-          notes.push(`${u.nickname}님의 지뢰(AI 복붙)와 ${other.nickname}님의 AI 사용 방식`);
+          notes.push(`${u.nickname}님이 피하고 싶은 'AI 복붙'과 ${other.nickname}님의 AI 사용 방식이 부딪힐 수 있어요.`);
         if (d === 'slow_decision' && x.decision_structure_preference <= 1)
-          notes.push(`${u.nickname}님의 지뢰(결정 지연)와 ${other.nickname}님의 결정 방식`);
+          notes.push(`${u.nickname}님이 피하고 싶은 '결정 지연'과 ${other.nickname}님의 결정 방식이 부딪힐 수 있어요.`);
         if (d === 'scope_creep' && x.risk_appetite >= 5 && x.quality_priority <= 2)
-          notes.push(`${u.nickname}님의 지뢰(기능 욕심)와 ${other.nickname}님의 도전 성향`);
+          notes.push(`${u.nickname}님이 피하고 싶은 '기능 욕심'과 ${other.nickname}님의 도전 성향이 부딪힐 수 있어요.`);
       }
     }
+  }
+  if (range(team.map((u) => num(u, 'ai_use_permissiveness'))) >= 3)
+    notes.push('AI로 핵심 코드를 써도 되는지에 대한 생각이 크게 갈려요. 사용 범위를 첫 회의에서 먼저 정해 두세요.');
+  for (let i = 1; i < team.length; i++) {
+    const lv = COMPATIBILITY_MATRIX_16X16[team[0].collabType][team[i].collabType];
+    // 임시 참고표라 가장 낮은 단계만 알림 (정식 매트릭스로 교체 전까지)
+    if (lv === 1)
+      notes.push(`나와 ${team[i].nickname}님의 협업 유형 조합은 임시 참고표에서 '${COMPAT_LEVEL_META[lv].label}' 단계예요.`);
   }
   return [...new Set(notes)];
 }
 
-function collaborationCompatibility(team: UserProfile[]) {
-  const work = 1 - mean(WORK_KEYS.map((k) => range(team.map((u) => num(u, k))))) / 4;
-  const levels: number[] = [];
-  for (let i = 0; i < team.length; i++)
-    for (let j = i + 1; j < team.length; j++)
-      levels.push(COMPATIBILITY_MATRIX_16X16[team[i].collabType][team[j].collabType]);
-  const matrix = (mean(levels) - 1) / 4;
-  const observed = team.filter((u) => CONFLICT_KEYS.every((k) => u.features27[k] !== null));
-  const parts: [number, number][] = [
-    [work, 0.45],
-    [matrix, 0.35],
-  ];
-  if (observed.length >= 2) {
-    const conflict = 1 - mean(CONFLICT_KEYS.map((k) => range(observed.map((u) => num(u, k))))) / 4;
-    parts.push([conflict, 0.2]);
-  }
-  const wsum = parts.reduce((s, [, w]) => s + w, 0);
-  const base = parts.reduce((s, [v, w]) => s + v * w, 0) / wsum;
-  return clamp01(base - dealBreakerConflicts(team).length * 0.08);
-}
+const SEPARATION_KEYS = [...GOAL_KEYS, ...AI_KEYS, ...WORK_KEYS];
 
-function memberFit(member: UserProfile, team: UserProfile[]) {
-  const others = team.filter((m) => m.id !== member.id);
-  const keys = [...GOAL_KEYS, ...AI_KEYS, ...WORK_KEYS];
-  const diffs = others.map((o) => mean(keys.map((k) => Math.abs(num(member, k) - num(o, k)) / 4)));
-  return clamp01(1 - mean(diffs));
+/** 팀원마다 다른 팀원과의 평균 응답 차이 → 가장 큰 사람 (Barrick et al., 1998: 평균과 함께 최솟값) */
+function findOutlier(team: UserProfile[]): MemberOutlier & { fit: number } {
+  const rows = team.map((member) => {
+    const others = team.filter((m) => m.id !== member.id);
+    const avgGap = mean(others.map((o) => mean(SEPARATION_KEYS.map((k) => Math.abs(num(member, k) - num(o, k))))));
+    return { nickname: member.nickname, avgGap: Math.round(avgGap * 10) / 10, fit: clamp01(1 - avgGap / 4) };
+  });
+  return rows.reduce((a, b) => (b.avgGap > a.avgGap ? b : a));
 }
 
 const GAP_COPY: Partial<Record<FeatureKey, string>> = {
@@ -313,50 +390,42 @@ const GAP_COPY: Partial<Record<FeatureKey, string>> = {
 };
 
 function biggestGap(team: UserProfile[]): { key: FeatureKey; note: string } {
-  const keys = [...GOAL_KEYS, ...AI_KEYS, ...WORK_KEYS];
-  let bestKey = keys[0];
+  let bestKey = SEPARATION_KEYS[0];
   let bestRange = -1;
-  for (const k of keys) {
+  for (const k of SEPARATION_KEYS) {
     const r = range(team.map((u) => num(u, k)));
     if (r > bestRange) {
       bestRange = r;
       bestKey = k;
     }
   }
-  return { key: bestKey, note: GAP_COPY[bestKey] ?? '응답 차이가 큰 항목이 있어 첫 회의에서 확인해 보세요.' };
+  const vals = team.map((u) => num(u, bestKey)).join(' · ');
+  return { key: bestKey, note: `${GAP_COPY[bestKey] ?? '응답 차이가 큰 항목이 있어 첫 회의에서 확인해 보세요.'} (응답 ${vals})` };
 }
 
-function evidenceTags(team: UserProfile[], contest: Contest, pairs: PuzzleMatchPair[]): string[] {
+function evidenceTags(team: UserProfile[], explanations: MetricExplanation[], pairs: PuzzleMatchPair[]): string[] {
   const tags: string[] = [];
   const all = (k: FeatureKey, pred: (v: number) => boolean) => team.every((u) => pred(num(u, k)));
   if (all('prototyping_preference', (v) => v >= 4)) tags.push('모두 빠른 프로토타이핑 선호');
   if (all('quality_priority', (v) => v >= 4)) tags.push('모두 완성도 우선');
   if (all('ai_verification_strictness', (v) => v >= 4)) tags.push('AI 결과는 직접 검증하자는 데 동의');
   if (range(team.map((u) => num(u, 'winning_orientation'))) <= 1) tags.push('수상 기대치가 비슷함');
-  if (range(team.map((u) => num(u, 'delivery_priority'))) <= 1) tags.push('완성 제출에 대한 생각이 비슷함');
-  const coveredAxes = [...new Set(pairs.map((p) => SKILL_CARD_BY_ID[p.strengthId].axis))];
-  for (const axis of coveredAxes.slice(0, 2)) tags.push(`${ROLE_LABEL[axis]} 역량 보완`);
-  const roleMax = contest.requiredRoles.filter((r) => Math.max(...team.map((u) => u.features27[r])) >= 3);
-  if (roleMax.length === contest.requiredRoles.length && contest.requiredRoles.length > 0)
-    tags.push('대회 필수 역할을 모두 채움');
+  const role = explanations.find((e) => e.metric === 'roleCoverage')!;
+  if (role.okCount === role.total) tags.push('대회 필수 역할을 모두 채움');
+  const exact = pairs.filter((p) => p.matchType === 'exact').length;
+  if (exact >= 2) tags.push(`약점 ${exact}장을 같은 카드 강점으로 덮음`);
   return tags.slice(0, 3);
 }
 
+/**
+ * 순위 = 화면에 보이는 개수(일치/채움 비율)의 가중합. 같으면 연속값(응답 차이 크기)으로 정렬.
+ * 화면 개수와 순위가 어긋나지 않게 하려는 것 (예: 15/15 팀이 14/15 팀보다 뒤에 오지 않음).
+ */
 function scoreTeam(team: UserProfile[], contest: Contest) {
-  const pairs = puzzlePairsFor(team);
-  const breakdown = {
-    goalAlignment: goalAlignment(team),
-    roleCoverage: roleCoverage(team, contest, pairs),
-    aiPolicyAlignment: aiPolicyAlignment(team),
-    collaborationCompatibility: collaborationCompatibility(team),
-    scheduleOverlap: null,
-  };
-  const score =
-    SCORE_WEIGHTS.goalAlignment * breakdown.goalAlignment +
-    SCORE_WEIGHTS.roleCoverage * breakdown.roleCoverage +
-    SCORE_WEIGHTS.aiPolicyAlignment * breakdown.aiPolicyAlignment +
-    SCORE_WEIGHTS.collaborationCompatibility * breakdown.collaborationCompatibility;
-  return { score, breakdown, pairs };
+  const explanations = explainTeam(team, contest);
+  const score = explanations.reduce((s, e) => s + e.weight * (e.okCount / e.total), 0);
+  const tiebreak = explanations.reduce((s, e) => s + e.weight * e.value, 0);
+  return { score, tiebreak, explanations };
 }
 
 function passesHardConstraints(user: UserProfile, candidate: UserProfile, contest: Contest) {
@@ -367,7 +436,7 @@ function passesHardConstraints(user: UserProfile, candidate: UserProfile, contes
   return true;
 }
 
-/** 1단계 팀 추천: 하드 제약 → 군집 다양화 후보 → 팀 수준 점수 상위 3팀 */
+/** 1단계 팀 추천: 하드 제약 → 군집 다양화 후보 → 팀 수준 점수 상위 3팀 (Layton et al., 2010의 기준 가중 팀 구성과 같은 구조) */
 export function recommendTeams(
   currentUser: UserProfile,
   pool: UserProfile[],
@@ -379,7 +448,7 @@ export function recommendTeams(
 
   // 1:1 사전 점수로 후보를 줄이되, 군집마다 상위 6명씩 뽑아 한 군집에 쏠리지 않게 함
   const pre = eligible
-    .map((u) => ({ u, s: scoreTeam([currentUser, u], contest).score }))
+    .map((u) => ({ u, s: scoreTeam([currentUser, u], contest).tiebreak }))
     .sort((a, b) => b.s - a.s);
   const perCluster = new Map<number, number>();
   const shortlist: UserProfile[] = [];
@@ -392,15 +461,15 @@ export function recommendTeams(
     if (shortlist.length >= 26) break;
   }
 
-  const scored: { members: UserProfile[]; score: number; breakdown: TeamCandidate['scoreBreakdown']; pairs: PuzzleMatchPair[] }[] = [];
+  const scored: { members: UserProfile[]; score: number; tiebreak: number; explanations: MetricExplanation[] }[] = [];
   for (let i = 0; i < shortlist.length; i++)
     for (let j = i + 1; j < shortlist.length; j++)
       for (let k = j + 1; k < shortlist.length; k++) {
         const members = [currentUser, shortlist[i], shortlist[j], shortlist[k]];
         const r = scoreTeam(members, contest);
-        scored.push({ members, score: r.score, breakdown: r.breakdown, pairs: r.pairs });
+        scored.push({ members, score: r.score, tiebreak: r.tiebreak, explanations: r.explanations });
       }
-  scored.sort((a, b) => b.score - a.score);
+  scored.sort((a, b) => b.score - a.score || b.tiebreak - a.tiebreak);
 
   // 서로 2명 이상 겹치지 않는 상위 3팀
   const picked: typeof scored = [];
@@ -414,20 +483,32 @@ export function recommendTeams(
   const teams: TeamCandidate[] = picked.map((t, idx) => {
     const missing = t.members.filter((m) => countMissing(m.features27) > 0);
     const gap = biggestGap(t.members);
+    const pairs = puzzlePairsFor(t.members);
+    const outlier = findOutlier(t.members);
+    const by = (k: MetricExplanation['metric']) => t.explanations.find((e) => e.metric === k)!.value;
     return {
       id: `${contest.id}-team-${idx + 1}`,
       contestId: contest.id,
       rank: (idx + 1) as 1 | 2 | 3,
       members: t.members,
       matchScore: Math.round(t.score * 1000) / 1000,
-      minMemberFit: Math.round(Math.min(...t.members.map((m) => memberFit(m, t.members))) * 1000) / 1000,
+      minMemberFit: Math.round(outlier.fit * 1000) / 1000,
       biggestGapNote: gap.note,
-      evidenceTags: evidenceTags(t.members, contest, t.pairs),
-      scoreBreakdown: t.breakdown,
+      evidenceTags: evidenceTags(t.members, t.explanations, pairs),
+      scoreBreakdown: {
+        goalAlignment: by('goalAlignment'),
+        roleCoverage: by('roleCoverage'),
+        aiPolicyAlignment: by('aiPolicyAlignment'),
+        collaborationCompatibility: by('collaborationCompatibility'),
+        scheduleOverlap: null,
+      },
       missingInfoNotice: missing.length
-        ? `${missing.map((m) => m.nickname).join(', ')}님은 성격·갈등 응답이 비어 있어요. 이 부분은 점수에서 빼고 계산했어요.`
+        ? `${missing.map((m) => m.nickname).join(', ')}님은 성격·갈등 응답이 비어 있어요. 이 문항들은 원래 점수에 쓰지 않아서 추천 결과는 같아요.`
         : undefined,
-      puzzlePairs: t.pairs,
+      puzzlePairs: pairs,
+      explanations: t.explanations,
+      outlier: { nickname: outlier.nickname, avgGap: outlier.avgGap },
+      cautions: cautionsFor(t.members),
       status: 'CLUSTERED',
     };
   });

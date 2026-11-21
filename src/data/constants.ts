@@ -2,6 +2,7 @@
 // SPEC.md 2~3장과 docs/proposal/08 3장을 바탕으로 화면 개발에 필요한 만큼 먼저 만든 상수입니다.
 // 혜원의 정식 구현이 올라오면 이 파일을 그대로 교체하면 됩니다. (export 이름은 hyewon-schema.md Task 1 기준)
 
+import type { ItemBasis } from './references';
 import type {
   CollabType,
   DealBreakerId,
@@ -88,6 +89,8 @@ export interface SurveyQuestion {
   text: string;
   /** true면 동의할수록 해당 피처 값이 낮아지는 역문항 */
   reverse?: boolean;
+  /** 이 문항이 무엇에 기반하는지 (docs/proposal/09 2장) */
+  basis: ItemBasis;
 }
 
 /** 1~5 리커트 문항. 08번 문서 3장 '자체 개발 문항 예시(검증 전)' 기반 */
@@ -100,29 +103,29 @@ export const SURVEY_QUESTIONS: {
       group: 'goal',
       title: '이번 대회에서 바라는 것',
       items: [
-        { key: 'winning_orientation', text: '이번 참가에서는 새로운 기술 학습보다 수상이 중요하다.' },
-        { key: 'learning_priority', text: '완성된 결과물보다 탐색과 학습 경험을 더 중시한다.' },
-        { key: 'delivery_priority', text: '마감이 촉박하면 기능을 줄여서라도 작동하는 결과물을 제출해야 한다.' },
-        { key: 'continuation_intent', text: '대회가 끝난 뒤에도 프로젝트를 이어갈 의향이 있다.' },
+        { key: 'winning_orientation', text: '이번 참가에서는 새로운 기술 학습보다 수상이 중요하다.', basis: { refs: ['VANDEWALLE1997'], adaptation: 'concept', note: '성과 지향 개념을 해커톤 수상 목표로 옮겼어요.' } },
+        { key: 'learning_priority', text: '완성된 결과물보다 탐색과 학습 경험을 더 중시한다.', basis: { refs: ['VANDEWALLE1997'], adaptation: 'concept', note: '학습 지향 개념을 참고했어요.' } },
+        { key: 'delivery_priority', text: '마감이 촉박하면 기능을 줄여서라도 작동하는 결과물을 제출해야 한다.', basis: { refs: [], adaptation: 'original', note: '해커톤 맥락에 맞춰 만든 문항이에요.' } },
+        { key: 'continuation_intent', text: '대회가 끝난 뒤에도 프로젝트를 이어갈 의향이 있다.', basis: { refs: [], adaptation: 'original' } },
       ],
     },
     {
       group: 'ai',
       title: 'AI를 쓰는 방식',
       items: [
-        { key: 'ai_use_permissiveness', text: '핵심 기능의 코드도 생성형 AI로 작성해도 괜찮다.' },
-        { key: 'ai_verification_strictness', text: 'AI가 만든 결과물은 팀원이 직접 확인한 뒤에 써야 한다.' },
-        { key: 'ai_disclosure_preference', text: 'AI를 어디에 썼는지 팀 안에서 서로 공개해야 한다.' },
+        { key: 'ai_use_permissiveness', text: '핵심 기능의 코드도 생성형 AI로 작성해도 괜찮다.', basis: { refs: ['SCHEPMAN2020'], adaptation: 'concept', note: 'AI 일반 태도가 아니라 팀 안에서 어디까지 쓸지를 물어요.' } },
+        { key: 'ai_verification_strictness', text: 'AI가 만든 결과물은 팀원이 직접 확인한 뒤에 써야 한다.', basis: { refs: [], adaptation: 'original' } },
+        { key: 'ai_disclosure_preference', text: 'AI를 어디에 썼는지 팀 안에서 서로 공개해야 한다.', basis: { refs: [], adaptation: 'original' } },
       ],
     },
     {
       group: 'work',
       title: '일하는 방식',
       items: [
-        { key: 'prototyping_preference', text: '긴 기획 회의보다 먼저 만들어 보고 고치는 편이 좋다.' },
-        { key: 'risk_appetite', text: '불확실한 도전보다 확실히 완성할 수 있는 기능을 먼저 한다.', reverse: true },
-        { key: 'quality_priority', text: '마감 직전이라도 품질을 위해 범위를 조정할 수 있다.' },
-        { key: 'decision_structure_preference', text: '시작 전에 팀의 결정 규칙을 정해 두는 것이 좋다.' },
+        { key: 'prototyping_preference', text: '긴 기획 회의보다 먼저 만들어 보고 고치는 편이 좋다.', basis: { refs: [], adaptation: 'original' } },
+        { key: 'risk_appetite', text: '불확실한 도전보다 확실히 완성할 수 있는 기능을 먼저 한다.', reverse: true, basis: { refs: [], adaptation: 'original', note: '반대로 묻는 문항이라 점수를 뒤집어 계산해요.' } },
+        { key: 'quality_priority', text: '마감 직전이라도 품질을 위해 범위를 조정할 수 있다.', basis: { refs: [], adaptation: 'original' } },
+        { key: 'decision_structure_preference', text: '시작 전에 팀의 결정 규칙을 정해 두는 것이 좋다.', basis: { refs: [], adaptation: 'original' } },
       ],
     },
   ],
@@ -131,22 +134,22 @@ export const SURVEY_QUESTIONS: {
       group: 'personality',
       title: '성격 (임시 문항 · 검증 전)',
       items: [
-        { key: 'openness', text: '처음 보는 방식이나 아이디어를 시도하는 게 즐겁다.' },
-        { key: 'conscientiousness', text: '맡은 일은 계획을 세워 마감 전에 끝낸다.' },
-        { key: 'extraversion', text: '여러 사람과 바로 이야기를 나누는 게 편하다.' },
-        { key: 'agreeableness', text: '팀원의 사정을 먼저 헤아리는 편이다.' },
-        { key: 'emotional_stability', text: '일이 꼬여도 쉽게 흔들리지 않는다.' },
+        { key: 'openness', text: '처음 보는 방식이나 아이디어를 시도하는 게 즐겁다.', basis: { refs: ['DONNELLAN2006'], adaptation: 'concept', note: '요인당 1문항이라 점수에는 쓰지 않고 대화 주제로만 써요.' } },
+        { key: 'conscientiousness', text: '맡은 일은 계획을 세워 마감 전에 끝낸다.', basis: { refs: ['DONNELLAN2006'], adaptation: 'concept', note: '요인당 1문항이라 점수에는 쓰지 않고 대화 주제로만 써요.' } },
+        { key: 'extraversion', text: '여러 사람과 바로 이야기를 나누는 게 편하다.', basis: { refs: ['DONNELLAN2006'], adaptation: 'concept', note: '요인당 1문항이라 점수에는 쓰지 않고 대화 주제로만 써요.' } },
+        { key: 'agreeableness', text: '팀원의 사정을 먼저 헤아리는 편이다.', basis: { refs: ['DONNELLAN2006'], adaptation: 'concept', note: '요인당 1문항이라 점수에는 쓰지 않고 대화 주제로만 써요.' } },
+        { key: 'emotional_stability', text: '일이 꼬여도 쉽게 흔들리지 않는다.', basis: { refs: ['DONNELLAN2006'], adaptation: 'concept', note: '요인당 1문항이라 점수에는 쓰지 않고 대화 주제로만 써요.' } },
       ],
     },
     {
       group: 'conflict',
       title: '의견이 부딪힐 때',
       items: [
-        { key: 'integrating', text: '다수결 전에 서로의 근거를 충분히 검토하고 싶다.' },
-        { key: 'obliging', text: '팀 분위기를 위해 내 의견을 양보하는 편이다.' },
-        { key: 'dominating', text: '동의하지 않을 때는 이유를 직접 말한다.' },
-        { key: 'avoiding', text: '충돌하면 잠시 시간을 둔 뒤 다시 이야기하는 게 낫다.' },
-        { key: 'compromising', text: '서로 조금씩 양보해 중간 지점을 찾는다.' },
+        { key: 'integrating', text: '다수결 전에 서로의 근거를 충분히 검토하고 싶다.', basis: { refs: ['RAHIM1983'], adaptation: 'concept', note: '\'통합\' 스타일 개념이에요. 점수에는 쓰지 않아요.' } },
+        { key: 'obliging', text: '팀 분위기를 위해 내 의견을 양보하는 편이다.', basis: { refs: ['RAHIM1983'], adaptation: 'concept', note: '\'양보\' 스타일 개념이에요. 점수에는 쓰지 않아요.' } },
+        { key: 'dominating', text: '동의하지 않을 때는 이유를 직접 말한다.', basis: { refs: ['RAHIM1983'], adaptation: 'concept', note: '\'지배\' 스타일 개념이에요. 점수에는 쓰지 않아요.' } },
+        { key: 'avoiding', text: '충돌하면 잠시 시간을 둔 뒤 다시 이야기하는 게 낫다.', basis: { refs: ['RAHIM1983'], adaptation: 'concept', note: '\'회피\' 스타일 개념이에요. 점수에는 쓰지 않아요.' } },
+        { key: 'compromising', text: '서로 조금씩 양보해 중간 지점을 찾는다.', basis: { refs: ['RAHIM1983'], adaptation: 'concept', note: '\'타협\' 스타일 개념이에요. 점수에는 쓰지 않아요.' } },
       ],
     },
   ],
@@ -306,3 +309,26 @@ function compat(a: CollabType, b: CollabType): CompatLevel {
 export const COMPATIBILITY_MATRIX_16X16 = Object.fromEntries(
   COLLAB_TYPES.map((a) => [a, Object.fromEntries(COLLAB_TYPES.map((b) => [b, compat(a, b)]))]),
 ) as Record<CollabType, Record<CollabType, CompatLevel>>;
+
+/** 역량 자기보고(0~4)의 근거 — CATME Team-Maker도 기술·경험을 자기보고로 받아 팀 배정에 씀 (온보딩 D2) */
+export const SKILL_BASIS: ItemBasis = { refs: ['LAYTON2010'], adaptation: 'concept', note: '본인이 매긴 숙련도라 실제 실력과 다를 수 있어요.' };
+
+/**
+ * 약점 카드 → 그 약점을 덮어 줄 수 있는 강점 카드 (자체 매핑 v1.0)
+ * 이전 버전은 '같은 역량 축'이면 아무 강점이나 연결해 "발표 자료 구조화 서툼 ← 빠른 아이디어 발산" 같은 어색한 짝이 나왔음.
+ * 첫 번째 = 같은 카드(정확히 덮음), 나머지 = 실제로 그 일을 대신해 줄 수 있는 카드만.
+ */
+export const WEAKNESS_COVERED_BY: Record<SkillCardId, SkillCardId[]> = {
+  frontend: ['frontend', 'fast_proto'],
+  backend: ['backend'],
+  ai_prompt: ['ai_prompt'],
+  data_analysis: ['data_analysis'],
+  ui_design: ['ui_design'],
+  slide_story: ['slide_story', 'copywriting'],
+  pitching: ['pitching'],
+  ideation: ['ideation', 'user_research'],
+  pm_schedule: ['pm_schedule'],
+  copywriting: ['copywriting', 'slide_story'],
+  user_research: ['user_research', 'data_analysis'],
+  fast_proto: ['fast_proto', 'pm_schedule'],
+};

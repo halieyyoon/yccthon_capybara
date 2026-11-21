@@ -3,7 +3,8 @@
 // [임시 구현 · 규혁 브랜치] 소유: 연서 (src/components/)
 // 계약: yeonseo-slides-ui.md 3장 ② — Props { team: TeamCandidate; unlocked?: boolean }
 // + 선택 Props: pieceCodes(멤버별 16유형 조각 — 없으면 응답에서 추정)
-// 4인 퍼즐 2×2 맞물림 + puzzlePairs 보완 화살표 + evidenceTags 칩 + biggestGapNote 앰버 박스 + minMemberFit
+// 4인 퍼즐 2×2 맞물림 + puzzlePairs 보완 화살표 + evidenceTags 칩 + biggestGapNote 앰버 박스
+// [v1.1 혜원] 소수 점수 대신 '맞는 항목 수' + 응답이 가장 다른 팀원 + 첫 회의에서 확인할 점 (docs/proposal/09)
 // unlocked=true(팀 확정 화면)에서는 분석 정보 없이 퍼즐이 합쳐지는 연출만 보여 줍니다.
 
 import { useEffect, useState } from 'react';
@@ -79,7 +80,10 @@ export function TeamPuzzleMerge({ team, unlocked, pieceCodes }: { team: TeamCand
               </div>
               <Icon name="arrow_back" size={18} className="text-outline" />
               <div className="min-w-0">
-                <p className="label-small text-on-surface-variant">{p.coveredByNickname}</p>
+                <p className="label-small text-on-surface-variant">
+                  {p.coveredByNickname}
+                  {p.matchType === 'mapped' && <span className="ml-1 text-outline">· 비슷한 강점</span>}
+                </p>
                 <p className="body-medium text-primary">
                   {SKILL_CARD_BY_ID[p.strengthId].strength}
                 </p>
@@ -93,17 +97,22 @@ export function TeamPuzzleMerge({ team, unlocked, pieceCodes }: { team: TeamCand
       <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
         <div>
           <p className="flex items-center gap-1 label-medium text-on-surface-variant">
-            조합 지수 (임시 가중치 v1.0)
-            <InfoTip align="start">검증 전 임시 가중치로 낸 순위 참고용 값이에요. 정확도나 궁합 확률이 아니에요.</InfoTip>
+            응답이 맞는 항목
+            <InfoTip align="start">목표·AI·협업은 4명의 응답 차이가 1점 이하인 문항 수, 역량은 필요한 역할을 능숙한 팀원이 채운 수예요. 정확도나 궁합 확률이 아니에요. 지표별 근거는 ‘왜 이 조합인가요?’에서 펼쳐 볼 수 있어요.</InfoTip>
           </p>
-          <p className="tabular display-small text-on-surface">{team.matchScore.toFixed(2)}</p>
+          <p className="tabular display-small text-on-surface">
+            {team.explanations.reduce((n, e) => n + e.okCount, 0)}
+            <span className="headline-small text-on-surface-variant">/{team.explanations.reduce((n, e) => n + e.total, 0)}</span>
+          </p>
         </div>
         <div>
           <p className="flex items-center gap-1 label-medium text-on-surface-variant">
-            가장 덜 맞는 팀원
-            <InfoTip align="start">평균만 보면 한 사람이 소외될 수 있어서, 팀에서 가장 불리한 사람의 적합도를 함께 보여 줘요.</InfoTip>
+            응답이 가장 다른 팀원
+            <InfoTip align="start">팀 평균이 좋아도 한 사람이 동떨어지면 문제가 생길 수 있어서, 평균과 함께 가장 먼 사람을 보여 줘요 (Barrick et al., 1998). 목표·AI·협업 11문항에서 다른 팀원과의 평균 점수 차이예요.</InfoTip>
           </p>
-          <p className={cx('tabular headline-small text-on-surface')}>{team.minMemberFit.toFixed(2)}</p>
+          <p className="title-medium text-on-surface">
+            {team.outlier.nickname} <span className="tabular body-medium text-on-surface-variant">평균 {team.outlier.avgGap}점 차이</span>
+          </p>
         </div>
         {team.missingInfoNotice && (
           <span className="inline-flex items-center gap-1 rounded-m3-sm bg-surface-container px-2.5 py-1 label-medium text-on-surface-variant">
@@ -112,6 +121,21 @@ export function TeamPuzzleMerge({ team, unlocked, pieceCodes }: { team: TeamCand
           </span>
         )}
       </div>
+
+      {team.cautions.length > 0 && (
+        <div className="rounded-m3-md bg-surface-container p-4">
+          <p className="flex items-center gap-1 label-large text-on-surface">
+            <Icon name="flag" size={18} />
+            첫 회의에서 확인할 점
+            <InfoTip align="start">근거가 약한 규칙이라 점수에는 넣지 않고 확인할 점으로만 보여 줘요.</InfoTip>
+          </p>
+          <ul className="mt-1.5 list-disc space-y-0.5 pl-5 body-small text-on-surface-variant">
+            {team.cautions.slice(0, 3).map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

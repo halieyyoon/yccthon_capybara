@@ -11,6 +11,7 @@ import type { Contest, TeamCandidate } from '@/types/ondo';
 import { COMPATIBILITY_MATRIX_16X16, COMPAT_LEVEL_META, ROLE_LABEL, SKILL_CARD_BY_ID, TEMPERATURE_BY_ID } from '@/data/constants';
 import { SEED_CONTESTS } from '@/data/seedContests';
 import { SCORE_WEIGHTS } from '@/lib/matching/clusterEngine';
+import { refsText, WEIGHT_SOURCE } from '@/data/references';
 import { Button, cx, Dialog, Icon, InfoTip, LinearProgress, Monogram, Tabs } from '@/components/m3';
 import { AppShell, NeedsUser } from '@/components/AppShell';
 import { AvatarMeetingCard } from '@/components/AvatarMeetingCard';
@@ -34,13 +35,6 @@ function dday(deadline: string) {
   return d > 0 ? `D-${d}` : d === 0 ? 'D-Day' : '마감';
 }
 
-const METRICS: { key: keyof typeof SCORE_WEIGHTS; label: string }[] = [
-  { key: 'goalAlignment', label: '목표 일치' },
-  { key: 'roleCoverage', label: '역량 보완' },
-  { key: 'aiPolicyAlignment', label: 'AI 규범' },
-  { key: 'collaborationCompatibility', label: '협업 방식' },
-];
-
 function ContestRow({ c, selected, onClick }: { c: Contest; selected: boolean; onClick: () => void }) {
   return (
     <button
@@ -58,27 +52,47 @@ function ContestRow({ c, selected, onClick }: { c: Contest; selected: boolean; o
   );
 }
 
-function MetricBars({ team }: { team: TeamCandidate }) {
+/** 지표마다 '개수 + 규칙 + 근거 논문 + 이 팀의 실제 응답'을 보여 줌 (docs/proposal/09) */
+function MetricEvidence({ team }: { team: TeamCandidate }) {
   return (
     <div className="space-y-2.5">
       <p className="flex items-center gap-1 label-medium text-on-surface-variant">
-        지표
-        <InfoTip align="start">일정 겹침은 이번 버전에서 빠져 있어서, 나머지 4개 지표의 가중치를 다시 맞춰 계산했어요(목표 0.375 · 역량 0.3125 · AI 0.1875 · 협업 0.125).</InfoTip>
+        왜 이 조합인가요?
+        <InfoTip align="start">{`순위는 4개 지표를 가중합해 정해요 (목표 ${SCORE_WEIGHTS.goalAlignment} · 역량 ${SCORE_WEIGHTS.roleCoverage} · AI ${SCORE_WEIGHTS.aiPolicyAlignment} · 협업 ${SCORE_WEIGHTS.collaborationCompatibility}). ${WEIGHT_SOURCE.note}`}</InfoTip>
       </p>
-      {METRICS.map((m) => {
-        const v = team.scoreBreakdown[m.key];
-        return (
-          <div key={m.key}>
-            <div className="flex justify-between body-small">
-              <span className="text-on-surface">{m.label}</span>
-              <span className="tabular text-on-surface-variant">{v.toFixed(2)}</span>
-            </div>
-            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-secondary-container">
-              <div className="h-full rounded-full bg-primary transition-[width] duration-700 ease-m3" style={{ width: `${v * 100}%` }} />
-            </div>
+      {team.explanations.map((e) => (
+        <details key={e.metric} className="group rounded-m3-sm bg-surface px-3 py-2">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 body-small">
+            <span className="text-on-surface">{e.label}</span>
+            <span className="flex items-center gap-1">
+              <span className="tabular title-small text-on-surface">
+                {e.okCount}/{e.total}
+              </span>
+              <span className="label-small text-on-surface-variant">{e.diversityType === 'variety' ? '역할 채움' : '문항 일치'}</span>
+              <Icon name="expand_more" size={18} className="text-outline transition-transform group-open:rotate-180" />
+            </span>
+          </summary>
+          <div className="mt-2 space-y-2 border-t border-outline-variant pt-2">
+            <p className="body-small text-on-surface">{e.why}</p>
+            <p className="body-small text-on-surface-variant">{e.rule}</p>
+            <ul className="space-y-1">
+              {e.items.map((it) => (
+                <li key={it.key} className="flex items-center justify-between gap-2 label-small">
+                  <span className={cx('flex items-center gap-1', it.ok ? 'text-on-surface' : 'text-on-surface-variant')}>
+                    <Icon name={it.ok ? 'check' : 'remove'} size={14} className={it.ok ? 'text-primary' : 'text-outline'} />
+                    {it.label}
+                  </span>
+                  <span className="tabular text-on-surface-variant" title={it.values.map((v) => `${v.nickname} ${v.value ?? '-'}`).join(', ')}>
+                    {it.values.map((v) => v.value ?? '–').join(' · ')}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="label-small text-outline">근거: {refsText(e.refs)}</p>
           </div>
-        );
-      })}
+        </details>
+      ))}
+      <p className="label-small text-on-surface-variant">응답은 나 · 팀원 순서예요. 자기보고 응답이라 실제 행동과 다를 수 있어요.</p>
     </div>
   );
 }
@@ -374,7 +388,7 @@ export default function MatchPage() {
                 <MatchDetails label="팀원과 추천 근거 자세히 보기">
                   <div className="@container space-y-5">
                     <TeamPuzzleMerge team={team} pieceCodes={codes} />
-                    <MetricBars team={team} />
+                    <MetricEvidence team={team} />
                     <ul className="grid gap-3 @xl:grid-cols-2">
                       {team.members.map((m, i) => {
                         const lv = i > 0 ? COMPATIBILITY_MATRIX_16X16[user.collabType][m.collabType] : null;
