@@ -51,6 +51,7 @@ profiles (
   nickname text not null,
   temperature int not null,           -- 36(편함) | 65(균형) | 90(진지)
   weekly_hours text not null,         -- '3-5h' | '6-10h' | '10h+'
+  available_slots jsonb not null,     -- 요일×시간대 가능 슬롯 (When2Meet형 정기 회의 계산용)
   ai_style text not null,             -- 'ai_accelerator' | 'ai_verifier' | 'manual_first'
   weaknesses text[] not null,         -- 약점 카드 2개
   strengths text[] not null,          -- 강점 카드 2개
@@ -75,6 +76,7 @@ team_simulations (
   contest_id uuid references contests(id),
   member_ids uuid[] not null,         -- 정렬된 3~4인 user_id 배열 (중복 호출 캐싱 키)
   stage1_score numeric not null,
+  recommended_meeting_slots jsonb not null, -- 4인 교집합 기반 정기 회의 추천 시간 TOP 3
   puzzle_summary jsonb not null,      -- 약점↔강점 보완 매핑
   meeting_highlights jsonb not null,  -- 4~6턴 가상 대화 하이라이트
   alignment_tip text not null,        -- 첫 회의 합의 포인트 1줄
@@ -104,11 +106,12 @@ team_consents (
 
 ```text
 조합 점수 = (온도 일치도 × 30)
-          + (주당 시간 겹침 × 20)
+          + (가능 시간표 교집합 / 정기 회의 슬롯 확보 × 20)
           + (약점↔강점 상호 보완도 × 35)
           + (AI 스타일 조화도 × 15)
           − (지뢰 Deal-breaker 충돌 × 40)
 ```
+- **정기 회의 시간 자동 추천 로직 (비용 0원)**: 4명의 `available_slots` 비트/배열 교집합에서 **연속 1~2시간 이상 전원 가능한 슬롯**을 추출해 상위 3개(`recommended_meeting_slots`)를 자동 반환한다.
 
 ### Stage 2. 단일 Structured JSON 가상 킥오프 (조합당 1회 호출)
 - 에이전트 4개를 따로 핑퐁 호출하지 않고, **1회의 LLM 호출**로 4인 페르소나의 6턴 가상 회의와 요약을 정해진 JSON 스키마로 한 번에 생성한다.
