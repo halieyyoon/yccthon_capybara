@@ -1,7 +1,9 @@
 'use client';
 
 // [임시 구현 · 규혁 브랜치] 소유: 연서 (src/components/)
-// Material Design 3 기본 컴포넌트. 스펙(높이·모서리·상태 레이어)은 m3.material.io 컴포넌트 가이드 기준.
+// 기본 컴포넌트 — Google Classroom 기반 Material Design 3, stt.gyuhyeok.com(E:UM) 규칙을 따른다.
+// 주요 버튼 = 연한 파랑 바탕 + 진한 파랑 글자(화면마다 1개) · 보조 = 테두리 · 텍스트 = 파랑 글자
+// 카드 12 / 패널 16 / 버튼·칩 알약 · 세그먼트·탭 = 연한 알약 안 흰 칩 · 대화상자 22 · 그림자는 떠 있는 것에만
 
 import Link from 'next/link';
 import {
@@ -11,7 +13,9 @@ import {
   type TextareaHTMLAttributes,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
+  useState,
 } from 'react';
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
@@ -31,11 +35,15 @@ export function Icon({ name, filled, size = 24, className }: { name: string; fil
 type ButtonVariant = 'filled' | 'tonal' | 'outlined' | 'text' | 'elevated';
 
 const buttonStyles: Record<ButtonVariant, string> = {
-  filled: 'bg-primary text-on-primary disabled:bg-on-surface/12 disabled:text-on-surface/38',
-  tonal: 'bg-secondary-container text-on-secondary-container disabled:bg-on-surface/12 disabled:text-on-surface/38',
-  outlined: 'border border-outline text-primary disabled:border-on-surface/12 disabled:text-on-surface/38',
-  text: 'text-primary disabled:text-on-surface/38 px-3',
-  elevated: 'bg-surface-container-low text-primary shadow-[0_1px_2px_rgba(0,0,0,.3),0_1px_3px_1px_rgba(0,0,0,.15)] disabled:shadow-none disabled:text-on-surface/38',
+  // 주요: 연한 파랑 + 진한 파랑 글자
+  filled: 'bg-primary-container text-on-primary-container hover:bg-[#a8d7fa] dark:hover:bg-[#0b5a8f]',
+  // 보조 강조: 연한 파랑 면
+  tonal: 'bg-secondary-container text-on-secondary-container hover:brightness-95',
+  // 보조: 테두리 없이 연한 회색 면 (테두리 지양)
+  outlined: 'bg-surface-container text-on-surface hover:bg-surface-container-highest',
+  // 텍스트: 파랑 글자
+  text: 'text-secondary hover:bg-secondary-container px-3',
+  elevated: 'bg-surface text-on-surface shadow-[0_1px_3px_rgba(32,33,36,.14)] hover:bg-surface-container',
 };
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -48,16 +56,15 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export function Button({ variant = 'filled', icon, trailingIcon, href, size = 'md', className, children, ...rest }: ButtonProps) {
   const cls = cx(
-    'state-layer inline-flex items-center justify-center gap-2 rounded-full label-large whitespace-nowrap select-none',
-    'transition-[background-color,box-shadow] duration-200 disabled:cursor-not-allowed',
-    size === 'lg' ? 'h-14 px-7 text-[16px]' : 'h-10 px-6',
-    icon && variant !== 'text' && (size === 'lg' ? 'pl-6' : 'pl-4'),
+    'inline-flex items-center justify-center gap-1.5 rounded-full label-large whitespace-nowrap select-none',
+    'transition-[background-color,border-color,color,transform] duration-200 ease-m3 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-55 disabled:active:scale-100',
+    size === 'lg' ? 'min-h-12 px-7 text-[15px]' : 'min-h-10 px-5',
     buttonStyles[variant],
     className,
   );
   const inner = (
     <>
-      {icon && <Icon name={icon} size={size === 'lg' ? 22 : 18} />}
+      {icon && <Icon name={icon} size={18} />}
       {children}
       {trailingIcon && <Icon name={trailingIcon} size={18} />}
     </>
@@ -84,14 +91,20 @@ export function IconButton({
   ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement> & { icon: string; label: string; variant?: 'standard' | 'filled' | 'tonal' | 'outlined'; selected?: boolean }) {
   const v = {
-    standard: selected ? 'text-primary' : 'text-on-surface-variant',
-    filled: 'bg-primary text-on-primary',
-    tonal: 'bg-secondary-container text-on-secondary-container',
-    outlined: 'border border-outline text-on-surface-variant',
+    standard: cx('hover:bg-surface-container', selected ? 'text-secondary' : 'text-on-surface-variant hover:text-on-surface'),
+    filled: 'bg-primary-container text-on-primary-container',
+    tonal: 'bg-surface-container text-on-surface',
+    outlined: 'bg-surface-container text-on-surface-variant',
   }[variant];
   return (
-    <button type="button" aria-label={label} title={label} className={cx('state-layer grid size-10 place-items-center rounded-full disabled:opacity-38', v, className)} {...rest}>
-      <Icon name={icon} filled={selected} />
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      className={cx('grid size-10 place-items-center rounded-full transition-colors duration-200 disabled:opacity-40 pointer-coarse:size-11', v, className)}
+      {...rest}
+    >
+      <Icon name={icon} filled={selected} size={22} />
     </button>
   );
 }
@@ -108,11 +121,39 @@ export function Card({
   as?: 'div' | 'section' | 'article';
 }) {
   const v = {
-    filled: 'bg-surface-container-highest',
-    outlined: 'bg-surface border border-outline-variant',
-    elevated: 'bg-surface-container-low shadow-[0_1px_2px_rgba(0,0,0,.3),0_1px_3px_1px_rgba(0,0,0,.15)]',
+    // 테두리 지양: 흰 본문 위에서는 연한 면으로 구분
+    filled: 'bg-surface-container-low',
+    outlined: 'bg-surface-container-low',
+    elevated: 'bg-surface shadow-[0_1px_3px_rgba(32,33,36,.12),0_4px_16px_rgba(32,33,36,.06)]',
   }[variant];
   return <Tag className={cx('rounded-m3-md', v, className)}>{children}</Tag>;
+}
+
+/** Classroom 수업 카드처럼 색조 머리띠가 있는 카드 */
+export function BandCard({
+  band,
+  head,
+  children,
+  className,
+  selected,
+}: {
+  band: 'fun' | 'balanced' | 'serious';
+  head: ReactNode;
+  children?: ReactNode;
+  className?: string;
+  selected?: boolean;
+}) {
+  return (
+    <div
+      className={cx('overflow-hidden rounded-m3-md bg-surface-container-low transition-shadow duration-200', className)}
+      style={selected ? { boxShadow: `0 0 0 2px var(--band-${band}-fg)` } : undefined}
+    >
+      <div className="px-5 pb-4 pt-5" style={{ background: `var(--band-${band})`, color: `var(--band-${band}-fg)` }}>
+        {head}
+      </div>
+      {children && <div className="px-5 py-4">{children}</div>}
+    </div>
+  );
 }
 
 export function Chip({
@@ -137,20 +178,18 @@ export function Chip({
       disabled={disabled}
       aria-pressed={kind === 'filter' ? !!selected : undefined}
       className={cx(
-        'state-layer inline-flex h-8 items-center gap-2 rounded-m3-sm label-large transition-colors duration-150 disabled:opacity-38',
-        selected
-          ? 'bg-secondary-container text-on-secondary-container pl-2 pr-4'
-          : 'border border-outline-variant text-on-surface-variant px-4',
-        !selected && icon && 'pl-2',
+        'inline-flex min-h-9 items-center gap-1.5 rounded-full px-4 label-large transition-colors duration-200 disabled:opacity-40 pointer-coarse:min-h-11',
+        selected ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container text-on-surface hover:bg-surface-container-highest',
+        (selected || icon) && 'pl-3',
       )}
     >
-      {selected && kind === 'filter' ? <Icon name="check" size={18} /> : icon ? <Icon name={icon} size={18} className="text-primary" /> : null}
+      {selected && kind === 'filter' ? <Icon name="check" size={18} /> : icon ? <Icon name={icon} size={18} className="text-secondary" /> : null}
       {label}
     </button>
   );
 }
 
-/** M3 Segmented button. 2~5개 옵션 단일 선택 */
+/** 알약 묶음 버튼(E:UM segmented): 연한 바탕 안에서 고른 것만 흰 칩 */
 export function SegmentedButton<T extends string | number>({
   options,
   value,
@@ -165,8 +204,8 @@ export function SegmentedButton<T extends string | number>({
   dense?: boolean;
 }) {
   return (
-    <div role="radiogroup" aria-label={ariaLabel} className="flex w-full overflow-hidden rounded-full border border-outline">
-      {options.map((o, i) => {
+    <div role="radiogroup" aria-label={ariaLabel} className="flex w-full gap-1 rounded-full bg-surface-container p-1">
+      {options.map((o) => {
         const sel = o.value === value;
         return (
           <button
@@ -176,13 +215,12 @@ export function SegmentedButton<T extends string | number>({
             aria-checked={sel}
             onClick={() => onChange(o.value)}
             className={cx(
-              'state-layer flex min-w-0 flex-1 items-center justify-center gap-1.5 label-large transition-colors duration-150',
-              dense ? 'h-10 px-1' : 'h-10 px-3',
-              i > 0 && 'border-l border-outline',
-              sel ? 'bg-secondary-container text-on-secondary-container' : 'text-on-surface',
+              'flex min-h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-full label-large transition-[background-color,color,box-shadow] duration-200 pointer-coarse:min-h-11',
+              dense ? 'px-1' : 'px-3',
+              sel ? 'bg-surface text-secondary shadow-[0_1px_2px_rgba(32,33,36,.14)]' : 'text-on-surface-variant hover:text-on-surface',
             )}
           >
-            {sel ? <Icon name="check" size={18} /> : o.icon ? <Icon name={o.icon} size={18} /> : null}
+            {o.icon && <Icon name={o.icon} size={18} />}
             <span className="truncate">{o.label}</span>
           </button>
         );
@@ -201,13 +239,13 @@ export function Switch({ checked, onChange, label }: { checked: boolean; onChang
       onClick={() => onChange(!checked)}
       className={cx(
         'relative h-8 w-[52px] shrink-0 rounded-full border-2 transition-colors duration-200',
-        checked ? 'border-primary bg-primary' : 'border-outline bg-surface-container-highest',
+        checked ? 'border-primary bg-primary' : 'border-transparent bg-surface-container-highest',
       )}
     >
       <span
         className={cx(
           'absolute top-1/2 grid -translate-y-1/2 place-items-center rounded-full transition-all duration-200 ease-m3',
-          checked ? 'left-[22px] size-6 bg-on-primary text-on-primary-container' : 'left-[6px] size-4 bg-outline',
+          checked ? 'left-[22px] size-6 bg-on-primary' : 'left-[6px] size-4 bg-outline',
         )}
       >
         {checked && <Icon name="check" size={16} className="text-primary" />}
@@ -224,40 +262,29 @@ interface FieldProps {
   suffix?: ReactNode;
 }
 
+// 입력란: 테두리 없이 연한 면(M3 filled 계열) + 포커스 때만 파랑 링
+const fieldBox =
+  'w-full rounded-m3-sm bg-surface-container text-[15px] text-on-surface outline-none transition-[background-color,box-shadow] duration-200 placeholder:text-on-surface-variant/60 hover:bg-surface-container-highest focus:bg-surface focus:shadow-[0_0_0_2px_var(--md-sys-color-primary)] disabled:opacity-60';
+
+/** 입력란: 이름표 위 + 테두리 상자(stt) */
 export function TextField({ label, supporting, error, leadingIcon, suffix, className, ...rest }: FieldProps & InputHTMLAttributes<HTMLInputElement>) {
   const id = useId();
   return (
-    <div className={className}>
-      <div
-        className={cx(
-          'group relative flex h-14 items-center rounded-m3-xs border bg-transparent transition-colors focus-within:border-2',
-          error ? 'border-error' : 'border-outline focus-within:border-primary hover:border-on-surface',
-        )}
-      >
-        {leadingIcon && <Icon name={leadingIcon} className="ml-3 text-on-surface-variant" />}
+    <div className={cx('grid gap-1.5', className)}>
+      <label htmlFor={id} className="label-medium text-on-surface-variant">
+        {label}
+      </label>
+      <div className="relative flex items-center">
+        {leadingIcon && <Icon name={leadingIcon} size={20} className="pointer-events-none absolute left-3 text-on-surface-variant" />}
         <input
           id={id}
-          placeholder=" "
-          className="peer h-full w-full min-w-0 bg-transparent px-4 pt-1 body-large text-on-surface outline-none placeholder:text-transparent focus:placeholder:text-on-surface-variant/70"
           aria-invalid={!!error}
+          className={cx(fieldBox, 'min-h-11 py-2.5', leadingIcon ? 'pl-10' : 'pl-3.5', suffix ? 'pr-32' : 'pr-3.5', error && 'shadow-[0_0_0_2px_var(--md-sys-color-error)]')}
           {...rest}
         />
-        {suffix && <span className="pr-4 body-large text-on-surface-variant">{suffix}</span>}
-        <label
-          htmlFor={id}
-          className={cx(
-            'pointer-events-none absolute top-1/2 -translate-y-1/2 bg-surface px-1 body-large transition-all',
-            leadingIcon ? 'left-11' : 'left-3',
-            error ? 'text-error' : 'text-on-surface-variant group-focus-within:text-primary',
-            'peer-focus:top-0 peer-focus:body-small peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:body-small',
-          )}
-        >
-          {label}
-        </label>
+        {suffix && <span className="pointer-events-none absolute right-3.5 text-[15px] text-on-surface-variant">{suffix}</span>}
       </div>
-      {(supporting || error) && (
-        <p className={cx('mt-1 px-4 body-small', error ? 'text-error' : 'text-on-surface-variant')}>{error ?? supporting}</p>
-      )}
+      {(supporting || error) && <p className={cx('body-small', error ? 'text-error' : 'text-on-surface-variant')}>{error ?? supporting}</p>}
     </div>
   );
 }
@@ -265,22 +292,12 @@ export function TextField({ label, supporting, error, leadingIcon, suffix, class
 export function TextArea({ label, supporting, className, ...rest }: FieldProps & TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const id = useId();
   return (
-    <div className={className}>
-      <div className="group relative rounded-m3-xs border border-outline transition-colors focus-within:border-2 focus-within:border-primary hover:border-on-surface">
-        <textarea
-          id={id}
-          placeholder=" "
-          className="peer block min-h-24 w-full resize-y bg-transparent px-4 pb-3 pt-4 body-large text-on-surface outline-none placeholder:text-transparent focus:placeholder:text-on-surface-variant/70"
-          {...rest}
-        />
-        <label
-          htmlFor={id}
-          className="pointer-events-none absolute left-3 top-7 -translate-y-1/2 bg-surface px-1 body-large text-on-surface-variant transition-all group-focus-within:text-primary peer-focus:top-0 peer-focus:body-small peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:body-small"
-        >
-          {label}
-        </label>
-      </div>
-      {supporting && <p className="mt-1 px-4 body-small text-on-surface-variant">{supporting}</p>}
+    <div className={cx('grid gap-1.5', className)}>
+      <label htmlFor={id} className="label-medium text-on-surface-variant">
+        {label}
+      </label>
+      <textarea id={id} className={cx(fieldBox, 'block min-h-24 resize-y px-3.5 py-2.5 leading-relaxed')} {...rest} />
+      {supporting && <p className="body-small text-on-surface-variant">{supporting}</p>}
     </div>
   );
 }
@@ -292,12 +309,12 @@ export function LinearProgress({ value, className }: { value?: number; className
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={value === undefined ? undefined : Math.round(value * 100)}
-      className={cx('relative h-1 w-full overflow-hidden rounded-full bg-secondary-container', className)}
+      className={cx('relative h-1.5 w-full overflow-hidden rounded-full bg-secondary-container', className)}
     >
       {value === undefined ? (
         <div className="absolute inset-y-0 w-1/3 animate-[m3-indeterminate_1.4s_var(--md-sys-motion-standard)_infinite] rounded-full bg-primary" />
       ) : (
-        <div className="h-full rounded-full bg-primary transition-[width] duration-500 ease-m3" style={{ width: `${value * 100}%` }} />
+        <div className="h-full rounded-full bg-primary transition-[width] duration-300 ease-m3" style={{ width: `${value * 100}%` }} />
       )}
       <style>{`@keyframes m3-indeterminate{0%{left:-35%}100%{left:100%}}`}</style>
     </div>
@@ -305,7 +322,7 @@ export function LinearProgress({ value, className }: { value?: number; className
 }
 
 export function Divider({ className }: { className?: string }) {
-  return <hr className={cx('border-0 border-t border-outline-variant', className)} />;
+  return <hr className={cx('border-0 border-t border-[#e8eaed] dark:border-[#333537]', className)} />;
 }
 
 export function Dialog({
@@ -341,23 +358,25 @@ export function Dialog({
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
-      <div className="absolute inset-0 bg-scrim/32" onClick={onClose} />
+      <div className="absolute inset-0 bg-scrim/50" onClick={onClose} />
       <div
         ref={ref}
         role="dialog"
         aria-modal
         tabIndex={-1}
         className={cx(
-          'enter-scale relative flex max-h-[min(90dvh,760px)] w-full flex-col rounded-m3-xl bg-surface-container-high text-on-surface outline-none',
-          wide ? 'max-w-2xl' : 'max-w-md',
+          'dialog-enter relative flex max-h-[calc(100dvh-48px)] w-full flex-col rounded-m3-xl bg-surface text-on-surface shadow-[0_12px_45px_rgba(32,33,36,.27)] outline-none',
+          wide ? 'max-w-3xl' : 'max-w-lg',
         )}
       >
-        <div className={cx('px-6 pt-6', icon && 'text-center')}>
-          {icon && <Icon name={icon} className="mb-4 text-secondary" />}
-          <h2 className="headline-small">{title}</h2>
+        <div className="flex items-center gap-3 pb-2 pl-6 pr-4 pt-5">
+          {icon && <Icon name={icon} className="text-secondary" />}
+          <h2 className="flex-1 headline-small">{title}</h2>
+          <IconButton icon="close" label="닫기" onClick={onClose} />
         </div>
-        <div className="mt-4 overflow-y-auto px-6 body-medium text-on-surface-variant">{children}</div>
-        <div className="flex justify-end gap-2 px-6 pb-6 pt-6">{actions ?? <Button variant="text" onClick={onClose}>닫기</Button>}</div>
+        <div className="overflow-y-auto overscroll-contain px-6 pb-2 pt-2 body-medium text-on-surface-variant">{children}</div>
+        {actions && <div className="flex justify-end gap-2 px-6 pb-6 pt-4">{actions}</div>}
+        {!actions && <div className="h-4" />}
       </div>
     </div>
   );
@@ -366,17 +385,18 @@ export function Dialog({
 export function Snackbar({ message, onDone }: { message: string | null; onDone: () => void }) {
   useEffect(() => {
     if (!message) return;
-    const t = setTimeout(onDone, 2800);
+    const t = setTimeout(onDone, 3000);
     return () => clearTimeout(t);
   }, [message, onDone]);
   if (!message) return null;
   return (
-    <div role="status" className="enter fixed inset-x-0 bottom-28 z-50 flex justify-center px-4 md:bottom-24">
-      <div className="min-h-12 max-w-xl rounded-m3-xs bg-inverse-surface px-4 py-3.5 body-medium text-inverse-on-surface shadow-lg">{message}</div>
+    <div role="status" className="enter fixed inset-x-0 bottom-28 z-50 flex justify-center px-4 md:bottom-8">
+      <div className="max-w-xl rounded-m3-sm bg-inverse-surface px-5 py-3 body-medium text-inverse-on-surface shadow-[0_4px_16px_rgba(32,33,36,.12)]">{message}</div>
     </div>
   );
 }
 
+/** 모드 전환 탭(E:UM mode-switch): 알약 안에서 강조가 미끄러지듯 옮겨 간다 */
 export function Tabs<T extends string>({
   tabs,
   value,
@@ -386,8 +406,14 @@ export function Tabs<T extends string>({
   value: T;
   onChange: (v: T) => void;
 }) {
+  const index = Math.max(0, tabs.findIndex((t) => t.value === value));
   return (
-    <div role="tablist" className="flex border-b border-outline-variant">
+    <div role="tablist" className="relative inline-grid w-full grid-flow-col auto-cols-fr rounded-full bg-surface-container p-1 sm:w-auto">
+      <span
+        aria-hidden
+        className="absolute bottom-1 left-1 top-1 rounded-full bg-surface shadow-[0_1px_2px_rgba(32,33,36,.14)] transition-transform duration-[360ms] ease-m3-decel"
+        style={{ width: `calc((100% - 8px) / ${tabs.length})`, transform: `translateX(${index * 100}%)` }}
+      />
       {tabs.map((t) => {
         const sel = t.value === value;
         return (
@@ -396,10 +422,9 @@ export function Tabs<T extends string>({
             role="tab"
             aria-selected={sel}
             onClick={() => onChange(t.value)}
-            className={cx('state-layer relative h-12 flex-1 px-4 title-small transition-colors', sel ? 'text-primary' : 'text-on-surface-variant')}
+            className={cx('relative z-10 min-h-10 whitespace-nowrap rounded-full px-5 label-large transition-colors duration-200', sel ? 'text-secondary' : 'text-on-surface-variant hover:text-on-surface')}
           >
             {t.label}
-            {sel && <span className="absolute inset-x-[20%] bottom-0 h-[3px] rounded-t-full bg-primary" />}
           </button>
         );
       })}
@@ -422,7 +447,7 @@ export function ListItem({
 }) {
   const Comp = onClick ? 'button' : 'div';
   return (
-    <Comp onClick={onClick} className={cx('flex w-full items-center gap-4 px-4 py-3 text-left', onClick && 'state-layer')}>
+    <Comp onClick={onClick} className={cx('flex w-full items-center gap-4 px-4 py-3 text-left', onClick && 'transition-colors hover:bg-surface-container')}>
       {leading}
       <div className="min-w-0 flex-1">
         <div className="body-large text-on-surface">{headline}</div>
@@ -441,8 +466,85 @@ export function Monogram({ name, tone = 'primary', size = 40 }: { name: string; 
     tertiary: 'bg-tertiary-container text-on-tertiary-container',
   }[tone];
   return (
-    <span className={cx('grid shrink-0 place-items-center rounded-full title-medium', cls)} style={{ width: size, height: size, fontSize: size * 0.42 }}>
+    <span className={cx('grid shrink-0 place-items-center rounded-full font-semibold', cls)} style={{ width: size, height: size, fontSize: size * 0.42 }}>
       {name.slice(0, 1)}
+    </span>
+  );
+}
+
+/**
+ * (i) 정보 버튼 — 꼭 필요한 설명만 여기에 넣습니다.
+ * 데스크톱은 마우스를 올리면, 모바일은 탭하면 열립니다. 바깥 클릭·Esc로 닫힘.
+ */
+export function InfoTip({ children, label = '설명 보기', align = 'center', className }: { children: ReactNode; label?: string; align?: 'start' | 'center' | 'end'; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const [shift, setShift] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const tipRef = useRef<HTMLSpanElement>(null);
+  const id = useId();
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+  // 열릴 때 말풍선이 화면 좌우 밖으로 나가면 안쪽으로 밀어 넣음 (여백 8px)
+  useLayoutEffect(() => {
+    if (!open) {
+      setShift(0);
+      return;
+    }
+    const el = tipRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    const pad = 8;
+    let dx = 0;
+    if (r.right > vw - pad) dx = vw - pad - r.right;
+    if (r.left + dx < pad) dx = pad - r.left;
+    if (dx !== 0) setShift(dx);
+  }, [open]);
+  const base = align === 'center' ? 'translateX(-50%)' : '';
+  return (
+    <span
+      ref={ref}
+      className={cx('relative inline-flex align-middle', className)}
+      onMouseEnter={() => window.matchMedia('(hover: hover)').matches && setOpen(true)}
+      onMouseLeave={() => window.matchMedia('(hover: hover)').matches && setOpen(false)}
+    >
+      <button
+        type="button"
+        aria-label={label}
+        aria-expanded={open}
+        aria-describedby={open ? id : undefined}
+        onClick={() => setOpen((o) => !o)}
+        className="grid size-6 place-items-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+      >
+        <Icon name="info" size={16} />
+      </button>
+      {open && (
+        <span
+          ref={tipRef}
+          id={id}
+          role="tooltip"
+          className={cx(
+            'absolute top-full z-40 mt-1 w-max max-w-[min(280px,calc(100vw-16px))] rounded-m3-sm bg-inverse-surface px-3 py-2 text-left body-small font-normal normal-case tracking-normal text-inverse-on-surface shadow-[0_4px_16px_rgba(32,33,36,.12)]',
+            align === 'start' && 'left-0',
+            align === 'center' && 'left-1/2',
+            align === 'end' && 'right-0',
+          )}
+          style={{ transform: `${base} translateX(${shift}px)` }}
+        >
+          {children}
+        </span>
+      )}
     </span>
   );
 }
