@@ -1,8 +1,10 @@
-# On-do (온도) — 마스터 기획서 (Single Source of Truth, v1.1)
+# On-do (온도) — 마스터 기획서 (Single Source of Truth, v1.2)
 
 > **문서 목적**  
 > YCCthon 카피바라 팀 3명(**혜원 · 규혁 · 연서**)과 각자의 **AI 에이전트**가 충돌 없이 병렬로 작업하기 위한 단일 기준 문서입니다.  
 > **`docs/proposal/08-팀원매칭척도및설문설계.md`의 27차원 분석 피처 규격(`feature_schema_version = "v1.0"`)과 방법론 원칙을 전면 통합**했습니다.
+>
+> **v1.2 (2026-11-21)**: 온보딩을 성향 설문 29문항(A~F 6단계)으로 바꾼 구현에 맞춰 2장 수집 방식을 갱신했습니다. 성격·갈등도 설문에서 받아 새 사용자는 27차원이 모두 채워지고, 목표 4차원은 대회별 참여 온도에서 참고값으로 만듭니다. 27차원 키·순서·타입은 바뀌지 않았습니다.
 >
 > **역할별 AI 에이전트 작업 지침서**
 > - **혜원 (Schema · 27차원 피처 · Seed 100명 · Clustering · AI API)**: [`docs/agents/hyewon-schema.md`](./docs/agents/hyewon-schema.md)
@@ -32,7 +34,8 @@ UI 카피, AI 프롬프트, 발표 슬라이드 어디에서도 아래 과장을
 - ❌ **금지**: “궁합 정확도 94%”, “검증된 심리검사”, “같은 군집 = 좋은 팀 보장”, “AI가 실제 행동을 정확히 예측”, “합성 데이터로 실제 성능 입증”
 - ✅ **원칙**:
   - 모든 27차원 값은 **자기보고 또는 규칙 기반 분석 피처(`v1.0`)**로 명시
-  - 결측값(미응답 성격·갈등 문항 등)은 **절대 `0`으로 채우지 않고 `null`로 보존**하며, 가용 지표의 가중치만 재조정하고 정보 부족을 표기
+  - 결측값은 **절대 `0`으로 채우지 않고 `null`로 보존**하며, 가용 지표의 가중치만 재조정하고 정보 부족을 표기 *(v1.2: 새 사용자는 설문에서 27차원을 모두 받으므로 결측이 생기지 않음. 이 규칙은 합성 시드 등 결측이 있는 데이터에 그대로 적용)*
+  - 성격(5)·갈등(5)은 **요인당 1문항 자체 작성 문항**이라 **점수식에 쓰지 않고** AI 모의회의·대화 주제 맥락에만 사용
   - AI 아바타 모의회의는 **행동 예측이 아니라 사전 쟁점을 드러내는 가상 실험**으로 명시
   - 2D 군집 산점도는 **탐색적 시각화(합성 시드 100명 데모)**이며, 2D 거리를 적합도 근거로 주장하지 않음
 
@@ -41,37 +44,40 @@ UI 카피, AI 프롬프트, 발표 슬라이드 어디에서도 아래 과장을
 ## 2. 고정 27차원 분석 피처 규격 (`feature_schema_version = "v1.0"`)
 
 `docs/proposal/08-팀원매칭척도및설문설계.md`에 따라 **사용자 1명당 27개 분석 피처 순서를 고정**합니다.  
-초기 2분 온보딩에서는 **목표(4) + AI 규범(3) + 작업 방식(4) + 역량(6)**을 우선 수집하고, **성격(5) + 갈등 대응(5)**은 선택 심화 단계로 두어 미응답 시 `null`로 저장합니다.
+온보딩은 **성향 설문 29문항, 6단계(A 일하는 방식 · B AI 쓰는 방식 · C 역할과 역량 · D 성격 · E 의견이 부딪힐 때 · F 함께하는 방식)**로 진행하며 **모든 단계가 필수**입니다(문항 정의 `src/store/pieceTypes.ts`, 근거 `src/data/surveyBasis.ts`·`docs/proposal/09`).
+- 성격(5)·갈등(5)도 D·E 단계에서 받아 **새 사용자는 27차원이 모두 채워집니다.** 단, 요인당 1문항 자체 작성이라 **점수식에서는 제외**합니다(1.3).
+- **목표(4)는 직접 묻지 않고** 대회마다 고르는 **참여 온도(36.5°/65°/90°)에서 참고값으로 만듭니다**(`goalFeaturesFor`). 온도·주당 시간은 대회마다 달라지므로 온보딩이 아니라 프로필/매칭 화면에서 정합니다.
+- `features27`의 성격·갈등 타입(`number | null`)은 그대로 둡니다. 결측이 있는 합성 시드와 이전 데이터를 위해서입니다.
 
-| 인덱스 | 그룹 | 키 (`FeatureKey`) | 의미 (높은 값) | 값 범위 | 온보딩 수집 |
+| 인덱스 | 그룹 | 키 (`FeatureKey`) | 의미 (높은 값) | 값 범위 | 수집 방식 (v1.2) |
 |---:|---|---|---|---|---|
-| 0 | 성격(5) | `openness` | 새로운 접근·아이디어 선호 | `1~5 \| null` | 선택 심화 |
-| 1 | 성격(5) | `conscientiousness` | 계획·책임·마감 준수 경향 | `1~5 \| null` | 선택 심화 |
-| 2 | 성격(5) | `extraversion` | 적극적 상호작용 경향 | `1~5 \| null` | 선택 심화 |
-| 3 | 성격(5) | `agreeableness` | 협조·배려 경향 | `1~5 \| null` | 선택 심화 |
-| 4 | 성격(5) | `emotional_stability` | 정서적 동요 적음 | `1~5 \| null` | 선택 심화 |
-| 5 | 목표(4) | `winning_orientation` | 성과·수상 우선 | `1~5` | **필수** |
-| 6 | 목표(4) | `learning_priority` | 기술 습득·경험 우선 | `1~5` | **필수** |
-| 7 | 목표(4) | `delivery_priority` | 작동하는 결과물 제출 우선 | `1~5` | **필수** |
-| 8 | 목표(4) | `continuation_intent` | 해커톤 이후 지속 의향 | `1~5` | **필수** |
-| 9 | 갈등(5) | `integrating` | 협력적 통합 선호 | `1~5 \| null` | 선택 심화 |
-| 10 | 갈등(5) | `obliging` | 상대 우선 선호 | `1~5 \| null` | 선택 심화 |
-| 11 | 갈등(5) | `dominating` | 자기 주장 선호 | `1~5 \| null` | 선택 심화 |
-| 12 | 갈등(5) | `avoiding` | 갈등 회피 선호 | `1~5 \| null` | 선택 심화 |
-| 13 | 갈등(5) | `compromising` | 상호 타협 선호 | `1~5 \| null` | 선택 심화 |
-| 14 | AI 규범(3) | `ai_use_permissiveness` | 핵심 업무 AI 사용 허용 | `1~5` | **필수** |
-| 15 | AI 규범(3) | `ai_verification_strictness` | AI 결과물 직접 검증 요구 | `1~5` | **필수** |
-| 16 | AI 규범(3) | `ai_disclosure_preference` | AI 사용 범위 팀 내 공개 요구 | `1~5` | **필수** |
-| 17 | 작업방식(4) | `prototyping_preference` | 빠른 프로토타이핑 선호 | `1~5` | **필수** |
-| 18 | 작업방식(4) | `risk_appetite` | 불확실한 기능 시도 성향 | `1~5` | **필수** |
-| 19 | 작업방식(4) | `quality_priority` | 기능 수보다 완성도 우선 | `1~5` | **필수** |
-| 20 | 작업방식(4) | `decision_structure_preference` | 의사결정 규칙·담당자 명확화 | `1~5` | **필수** |
-| 21 | 역량(6) | `planning` | 기획·요구사항 정의 숙련도 | `0~4` | **필수** |
-| 22 | 역량(6) | `frontend` | UI·웹 프론트엔드 숙련도 | `0~4` | **필수** |
-| 23 | 역량(6) | `backend` | API·서버·DB 숙련도 | `0~4` | **필수** |
-| 24 | 역량(6) | `design` | UX·UI·시각 디자인 숙련도 | `0~4` | **필수** |
-| 25 | 역량(6) | `data_ai` | 데이터 분석·ML·생성형 AI 숙련도 | `0~4` | **필수** |
-| 26 | 역량(6) | `presentation` | 발표·피칭·커뮤니케이션 숙련도 | `0~4` | **필수** |
+| 0 | 성격(5) | `openness` | 새로운 접근·아이디어 선호 | `1~5 \| null` | 설문 D (점수 미사용) |
+| 1 | 성격(5) | `conscientiousness` | 계획·책임·마감 준수 경향 | `1~5 \| null` | 설문 D (점수 미사용) |
+| 2 | 성격(5) | `extraversion` | 적극적 상호작용 경향 | `1~5 \| null` | 설문 D (점수 미사용) |
+| 3 | 성격(5) | `agreeableness` | 협조·배려 경향 | `1~5 \| null` | 설문 D (점수 미사용) |
+| 4 | 성격(5) | `emotional_stability` | 정서적 동요 적음 | `1~5 \| null` | 설문 D (점수 미사용) |
+| 5 | 목표(4) | `winning_orientation` | 성과·수상 우선 | `1~5` | 참여 온도에서 도출 |
+| 6 | 목표(4) | `learning_priority` | 기술 습득·경험 우선 | `1~5` | 참여 온도에서 도출 |
+| 7 | 목표(4) | `delivery_priority` | 작동하는 결과물 제출 우선 | `1~5` | 참여 온도에서 도출 |
+| 8 | 목표(4) | `continuation_intent` | 해커톤 이후 지속 의향 | `1~5` | 참여 온도에서 도출 |
+| 9 | 갈등(5) | `integrating` | 협력적 통합 선호 | `1~5 \| null` | 설문 E (점수 미사용) |
+| 10 | 갈등(5) | `obliging` | 상대 우선 선호 | `1~5 \| null` | 설문 E (점수 미사용) |
+| 11 | 갈등(5) | `dominating` | 자기 주장 선호 | `1~5 \| null` | 설문 E (점수 미사용) |
+| 12 | 갈등(5) | `avoiding` | 갈등 회피 선호 | `1~5 \| null` | 설문 E (점수 미사용) |
+| 13 | 갈등(5) | `compromising` | 상호 타협 선호 | `1~5 \| null` | 설문 E (점수 미사용) |
+| 14 | AI 규범(3) | `ai_use_permissiveness` | 핵심 업무 AI 사용 허용 | `1~5` | 설문 B |
+| 15 | AI 규범(3) | `ai_verification_strictness` | AI 결과물 직접 검증 요구 | `1~5` | 설문 B |
+| 16 | AI 규범(3) | `ai_disclosure_preference` | AI 사용 범위 팀 내 공개 요구 | `1~5` | 설문 B |
+| 17 | 작업방식(4) | `prototyping_preference` | 빠른 프로토타이핑 선호 | `1~5` | 설문 A |
+| 18 | 작업방식(4) | `risk_appetite` | 불확실한 기능 시도 성향 | `1~5` | 설문 A |
+| 19 | 작업방식(4) | `quality_priority` | 기능 수보다 완성도 우선 | `1~5` | 설문 A |
+| 20 | 작업방식(4) | `decision_structure_preference` | 의사결정 규칙·담당자 명확화 | `1~5` | 설문 A |
+| 21 | 역량(6) | `planning` | 기획·요구사항 정의 숙련도 | `0~4` | 설문 C |
+| 22 | 역량(6) | `frontend` | UI·웹 프론트엔드 숙련도 | `0~4` | 설문 C |
+| 23 | 역량(6) | `backend` | API·서버·DB 숙련도 | `0~4` | 설문 C |
+| 24 | 역량(6) | `design` | UX·UI·시각 디자인 숙련도 | `0~4` | 설문 C |
+| 25 | 역량(6) | `data_ai` | 데이터 분석·ML·생성형 AI 숙련도 | `0~4` | 설문 C |
+| 26 | 역량(6) | `presentation` | 발표·피칭·커뮤니케이션 숙련도 | `0~4` | 설문 C |
 
 > **27차원에 절대 포함하지 않는 별도 필드** (`08번 문서` 0장 준수):  
 > - `preferredRoles` (희망 역할 — 숙련도 21~26과 분리)
@@ -153,7 +159,7 @@ export type CollabType =
 
 // 고정 27차원 분석 피처 (결측은 0이 아닌 null!)
 export interface Features27 {
-  // 성격 (5) — 선택 심화, 미응답 시 null
+  // 성격 (5) — 설문 D에서 수집(점수 미사용). 시드·이전 데이터는 null 가능
   openness: number | null;
   conscientiousness: number | null;
   extraversion: number | null;
@@ -164,7 +170,7 @@ export interface Features27 {
   learning_priority: number;
   delivery_priority: number;
   continuation_intent: number;
-  // 갈등 대응 (5) — 선택 심화, 미응답 시 null
+  // 갈등 대응 (5) — 설문 E에서 수집(점수 미사용). 시드·이전 데이터는 null 가능
   integrating: number | null;
   obliging: number | null;
   dominating: number | null;
@@ -347,9 +353,9 @@ export interface PilotWorkspace {
        0.3750 × goalAlignment              (목표 4차원 유사성, 원안 0.30 / 0.80)
      + 0.3125 × roleCoverage               (역량 6차원 커버리지 + 퍼즐 장단점 보완, 원안 0.25 / 0.80)
      + 0.1875 × aiPolicyAlignment          (AI 규범 3차원 일치, 원안 0.15 / 0.80)
-     + 0.1250 × collaborationCompatibility (작업방식·갈등·16×16 매트릭스·지뢰, 원안 0.10 / 0.80)
+     + 0.1250 × collaborationCompatibility (작업방식·16×16 매트릭스·지뢰, 원안 0.10 / 0.80 — v1.2부터 갈등은 점수에서 제외)
    ```
-   - 성격(01~05)은 점수식에서 제외하고 설명·모의회의 맥락에만 제한 활용
+   - 성격(01~05)·갈등(10~14)은 점수식에서 제외하고 설명·모의회의 맥락에만 제한 활용 *(군집 탐색용 Gower 거리에는 포함)*
    - 평균 `matchScore`와 함께 **`minMemberFit`(가장 불리한 팀원 적합도)**과 **`biggestGapNote`(가장 큰 차이 쟁점)**를 반드시 함께 표시
 
 ### 2단계: AI 아바타 사전 모의회의 (`POST /api/avatar-meeting`)
@@ -377,7 +383,7 @@ export interface PilotWorkspace {
 - `POST /api/parse-cv` — `multipart/form-data(file)` or `{ rawText }` → `{ cv: Partial<CvTemplate>, suggestedStrengths?: SkillCardId[] }`
 
 ### 화면 7종 (`src/app/`)
-`/` (랜딩·데모 진입) · `/onboarding` (2분 필수 + 선택 심화 온보딩) · `/profile` (퍼즐 프로필·Weekly Drop) · `/cv` (5섹션 CV 에디터) · `/match` (공모전 선택·101명 27차원 군집 산점도·AI 아바타 카드) · `/pilot/[teamId]` (20분 파일럿 해커톤 방) · `/team/[teamId]` (팀 확정·실명·CV 언락)
+`/` (랜딩·데모 진입) · `/onboarding` (성향 설문 29문항 6단계 → 내 조각 결과 → CV) · `/profile` (퍼즐 프로필·Weekly Drop) · `/cv` (5섹션 CV 에디터) · `/match` (공모전 선택·101명 27차원 군집 산점도·AI 아바타 카드) · `/pilot/[teamId]` (20분 파일럿 해커톤 방) · `/team/[teamId]` (팀 확정·실명·CV 언락)
 
 ### 폴더 소유권 (충돌 방지)
 | 담당자 | 소유 경로 |
