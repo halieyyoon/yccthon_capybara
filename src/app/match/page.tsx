@@ -2,6 +2,8 @@
 
 // 소유: 규혁 — 5) `/match` 공모전 선택 & 1·2단계 매칭
 // 상태 흐름(05 workflow): CLUSTERED → AVATAR_DONE → (PILOT_ACTIVE) → WAITING_CONSENT → UNLOCKED, 넘기기·미성사 → EXPIRED
+// 대회 규모 구분 없음 — 모든 대회가 추천 → AI 아바타 → (선택) 20분 파일럿 → 팀 확정
+// 추천 팀원 타일을 누르면 ‘우리 둘 궁합’(퍼즐 궁합 매트릭스 시안 3쪽 구조)
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -16,6 +18,8 @@ import { ClusterScatterPlot } from '@/components/ClusterScatterPlot';
 import { PuzzlePiece } from '@/components/PuzzlePiece';
 import { TeamPuzzleMerge } from '@/components/TeamPuzzleMerge';
 import { useHydrated, useOndoStore } from '@/store/useOndoStore';
+import { PIECE_TYPES, type PieceCode, edgesFromCode, nameI, pairReport, pieceOf } from '@/store/pieceTypes';
+import type { UserProfile } from '@/types/ondo';
 
 const CATEGORY_LABEL: Record<Contest['category'], string> = {
   it_hackathon: 'IT 해커톤',
@@ -95,24 +99,96 @@ function MatchDetails({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-function TeamOverview({ team, userId }: { team: TeamCandidate; userId: string }) {
+/** 우리 둘 궁합 — 두 조각 · 맞물리는 변 수 · 축별 한 줄 · 첫 만남에 정할 것 */
+function PairCompatView({ me, them, myCode, theirCode, onContinue }: { me: UserProfile; them: UserProfile; myCode: PieceCode; theirCode: PieceCode; onContinue: () => void }) {
+  const myName = PIECE_TYPES[myCode].name;
+  const theirName = PIECE_TYPES[theirCode].name;
+  const r = pairReport(myCode, theirCode, theirName);
+  return (
+    <div>
+      <div className="rounded-m3-xl bg-surface-container-low px-4 py-5 text-center">
+        <div className="flex items-center justify-center gap-3">
+          <div className="flex flex-col items-center">
+            <PuzzlePiece mode={me.temperatureMode} edges={edgesFromCode(myCode)} size={104} />
+            <p className="title-small text-on-surface">{myName} (나)</p>
+          </div>
+          <span
+            className={cx('grid size-10 shrink-0 place-items-center rounded-full title-medium', r.count >= 2 ? 'bg-primary-container text-on-primary-container' : 'bg-secondary-container text-on-secondary-container')}
+            aria-label={r.count >= 2 ? `${r.count}변 맞물림` : `${4 - r.count}변 포개짐`}
+          >
+            {r.count >= 2 ? '◆' : '○'}
+          </span>
+          <div className="flex flex-col items-center">
+            <PuzzlePiece mode={them.temperatureMode} edges={edgesFromCode(theirCode)} size={104} />
+            <p className="title-small text-on-surface">{theirName}</p>
+          </div>
+        </div>
+        <p className="mt-3 headline-small text-on-surface">{r.headline}</p>
+        <p className="body-medium text-on-surface-variant">{r.sub}</p>
+      </div>
+
+      <ul className="mt-3 space-y-2">
+        {r.axes.map((a) => (
+          <li key={a.axis} className="rounded-m3-md bg-surface-container-low px-4 py-3">
+            <p className="label-medium text-on-surface-variant">{a.label}</p>
+            <p className="title-small text-on-surface">{a.line}</p>
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-3 rounded-m3-md bg-secondary-container px-4 py-3 text-on-secondary-container">
+        <p className="title-small">첫 만남에 이것만 정해요</p>
+        <p className="body-medium">{r.firstMeeting}</p>
+      </div>
+
+      <Button size="lg" className="mt-4 w-full" onClick={onContinue}>
+        {nameI(theirName)}랑 팀 퍼즐 이어가기
+      </Button>
+      <p className="mt-2 flex items-center justify-center gap-1 body-small text-on-surface-variant">
+        {them.nickname}님의 조각
+        <InfoTip>4문항에 답하지 않은 사람의 조각은 매칭 응답으로 추정해요. 협업 성향 조각이에요(심리검사 아님).</InfoTip>
+      </p>
+    </div>
+  );
+}
+
+function TeamOverview({ team, userId, codes, onOpenPair }: { team: TeamCandidate; userId: string; codes: PieceCode[]; onOpenPair: (memberId: string) => void }) {
   const reasons = team.evidenceTags.slice(0, 2);
   const example = team.puzzlePairs.find((pair) => pair.weaknessOwnerId === userId) ?? team.puzzlePairs[0];
 
   return (
     <div className="space-y-5">
+      <p className="-mb-3 flex items-center gap-1 label-medium text-on-surface-variant">
+        추천 팀원
+        <InfoTip align="start">팀원을 누르면 우리 둘이 어떻게 맞물리는지 볼 수 있어요.</InfoTip>
+      </p>
       <ul aria-label="추천 팀원" className="grid grid-cols-2 gap-2 @xl:grid-cols-4">
         {team.members.map((member) => {
           const isMe = member.id === userId;
-          return (
-            <li key={member.id} className={cx('flex min-w-0 items-center gap-2 rounded-m3-md px-2.5 py-2.5 @xl:flex-col @xl:py-3 @xl:text-center', isMe ? 'bg-secondary-container' : 'bg-surface')}>
+          const idx = team.members.indexOf(member);
+          const body = (
+            <>
               <div className="shrink-0">
                 <Monogram name={member.nickname} size={32} tone={isMe ? 'primary' : 'secondary'} />
               </div>
               <div className="min-w-0">
                 <p className="title-small [overflow-wrap:anywhere]">{isMe ? '나' : member.nickname}</p>
-                <p className="mt-0.5 body-small text-on-surface-variant">{TEMPERATURE_BY_ID[member.temperatureMode].temperature}°</p>
+                <p className="mt-0.5 body-small text-on-surface-variant">
+                  {PIECE_TYPES[codes[idx]].name} · {TEMPERATURE_BY_ID[member.temperatureMode].temperature}°
+                </p>
               </div>
+            </>
+          );
+          const tile = 'flex min-w-0 items-center gap-2 rounded-m3-md px-2.5 py-2.5 @xl:flex-col @xl:py-3 @xl:text-center';
+          return (
+            <li key={member.id}>
+              {isMe ? (
+                <div className={cx(tile, 'bg-secondary-container')}>{body}</div>
+              ) : (
+                <button type="button" onClick={() => onOpenPair(member.id)} aria-label={`${member.nickname}와 우리 둘 궁합 보기`} className={cx(tile, 'state-layer w-full bg-surface text-left hover:bg-surface-container')}>
+                  {body}
+                </button>
+              )}
             </li>
           );
         })}
@@ -158,6 +234,8 @@ export default function MatchPage() {
   const requestAvatarMeeting = useOndoStore((s) => s.requestAvatarMeeting);
   const unlockTeam = useOndoStore((s) => s.unlockTeam);
   const passTeam = useOndoStore((s) => s.passTeam);
+  const myPiece = useOndoStore((s) => s.myPiece);
+  const [pairId, setPairId] = useState<string | null>(null);
 
   const [tab, setTab] = useState<'1' | '2' | '3'>('1');
   const [showContestList, setShowContestList] = useState(false);
@@ -181,7 +259,8 @@ export default function MatchPage() {
   if (!user) return <AppShell><NeedsUser /></AppShell>;
 
   const showResults = contest && teams.length > 0 && teams[0].contestId === contest.id && !busy;
-  const large = contest?.scale === 'large';
+  const codes = team ? team.members.map((m) => pieceOf(m, user.id, myPiece)) : [];
+  const pairMember = team?.members.find((m) => m.id === pairId);
 
   return (
     <AppShell>
@@ -201,24 +280,14 @@ export default function MatchPage() {
           )}
           <div id="match-contest-list" className={cx('space-y-4', contest && (showContestList ? 'mt-3 lg:mt-0' : 'hidden lg:block'))}>
             {showResults ? <h2 className="headline-small">어떤 대회에 나가요?</h2> : <h1 className="headline-small">어떤 대회에 나가요?</h1>}
-            {(['large', 'small'] as const).map((scale) => (
-              <section key={scale}>
-                <p className="mb-1 flex items-center gap-1 px-1 label-large text-on-surface-variant">
-                  {scale === 'large' ? '대규모' : '소규모'}
-                  <InfoTip align="start">
-                    {scale === 'large' ? '추천 팀 → AI 아바타 모의회의 → (선택) 20분 파일럿 → 팀 확정' : '추천 팀을 보고 바로 만나요.'}
-                  </InfoTip>
-                </p>
-                <div className="space-y-1">
-                  {SEED_CONTESTS.filter((c) => c.scale === scale).map((c) => (
-                    <ContestRow key={c.id} c={c} selected={c.id === selectedContestId} onClick={() => {
-                      setShowContestList(false);
-                      void runMatching(c.id);
-                    }} />
-                  ))}
-                </div>
-              </section>
-            ))}
+            <div className="space-y-1">
+              {SEED_CONTESTS.map((c) => (
+                <ContestRow key={c.id} c={c} selected={c.id === selectedContestId} onClick={() => {
+                  setShowContestList(false);
+                  void runMatching(c.id);
+                }} />
+              ))}
+            </div>
           </div>
         </aside>
 
@@ -226,7 +295,7 @@ export default function MatchPage() {
           {!contest && !busy && (
             <div className="grid place-items-center lg:min-h-[50vh] rounded-m3-xl bg-surface-container-low p-8 text-center">
               <div>
-                <PuzzlePiece mode={user.temperatureMode} edges={[-1, 1, -1, 1]} label={user.collabType} size={140} />
+                <PuzzlePiece mode={user.temperatureMode} edges={myPiece ? edgesFromCode(myPiece) : [-1, 1, -1, 1]} size={140} />
                 <p className="mt-4 title-large">대회를 골라 주세요</p>
               </div>
             </div>
@@ -273,7 +342,7 @@ export default function MatchPage() {
                 )}
                 {team && team.status !== 'EXPIRED' && (
                   <div key={team.id} className="@container space-y-5 px-4 pb-5 pt-4 sm:px-5">
-                    <TeamOverview team={team} userId={user.id} />
+                    <TeamOverview team={team} userId={user.id} codes={codes} onOpenPair={setPairId} />
 
                     <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center">
                       <div className="flex items-center gap-2">
@@ -283,11 +352,9 @@ export default function MatchPage() {
                         <InfoTip align="start">누가 먼저 요청했는지는 서로 보이지 않고, 넘겨도 알림은 가지 않아요. 모두 수락해야 실명과 CV가 열려요.</InfoTip>
                       </div>
                       <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:justify-end">
-                        {large && (
-                          <Button variant="outlined" icon="timer" onClick={() => router.push(`/pilot/${team.id}`)}>
-                            20분 파일럿
-                          </Button>
-                        )}
+                        <Button variant="outlined" icon="timer" onClick={() => router.push(`/pilot/${team.id}`)}>
+                          20분 파일럿
+                        </Button>
                         <Button
                           icon="waving_hand"
                           onClick={() => {
@@ -305,7 +372,7 @@ export default function MatchPage() {
               {team && team.status !== 'EXPIRED' && (
                 <MatchDetails label="팀원과 추천 근거 자세히 보기">
                   <div className="@container space-y-5">
-                    <TeamPuzzleMerge team={team} />
+                    <TeamPuzzleMerge team={team} pieceCodes={codes} />
                     <MetricBars team={team} />
                     <ul className="grid gap-3 @xl:grid-cols-2">
                       {team.members.map((m, i) => {
@@ -336,7 +403,7 @@ export default function MatchPage() {
                   </div>
                 </MatchDetails>
               )}
-              {large && team && team.status !== 'EXPIRED' && (
+              {team && team.status !== 'EXPIRED' && (
                 <MatchDetails label="AI 모의회의 보기">
                   {(meetings[team.id] || avatarLoading[team.id]) ? (
                     <AvatarMeetingCard result={meetings[team.id]} loading={avatarLoading[team.id]} loadingStepText="팀 응답으로 가상 회의를 만드는 중" />
@@ -355,6 +422,18 @@ export default function MatchPage() {
           )}
         </div>
       </div>
+
+      <Dialog open={!!pairMember && !!team} onClose={() => setPairId(null)} title="우리 둘 궁합" wide>
+        {pairMember && team && (
+          <PairCompatView
+            me={user}
+            them={pairMember}
+            myCode={codes[0]}
+            theirCode={codes[team.members.indexOf(pairMember)]}
+            onContinue={() => setPairId(null)}
+          />
+        )}
+      </Dialog>
 
       <Dialog
         open={!!requesting}

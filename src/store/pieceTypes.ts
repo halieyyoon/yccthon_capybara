@@ -394,6 +394,9 @@ export interface PairReport {
   firstMeeting: string;
 }
 
+/** 축 라벨 안에서 ‘결정’이 겹치지 않게: ‘감으로 결정’ → ‘감으로’ */
+const short = (tag: string) => tag.replace(/ 결정$/, '');
+
 export function pairReport(me: PieceCode, them: PieceCode, themName: string): PairReport {
   const t = nameI(themName);
   const axes = PIECE_AXES.map((q, i) => {
@@ -402,7 +405,7 @@ export function pairReport(me: PieceCode, them: PieceCode, themName: string): Pa
     const opposite = mine.letter !== theirs.letter;
     return {
       axis: q.axis,
-      label: opposite ? `${q.axisLabel} ${mine.tag} ↔ ${theirs.tag}` : `${q.axisLabel} 둘 다 ${mine.tag}`,
+      label: opposite ? `${q.axisLabel} ${short(mine.tag)} ↔ ${short(theirs.tag)}` : `${q.axisLabel} 둘 다 ${short(mine.tag)}`,
       opposite,
       line: AXIS_LINES[q.axis][`${me[i]}${them[i]}`](t),
     };
