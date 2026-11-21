@@ -57,7 +57,7 @@ export function TeamPuzzleMerge({
             <li key={i} className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 py-2.5">
               <div className="min-w-0">
                 <p className="label-small text-on-surface-variant">{p.weaknessOwnerNickname}의 홈</p>
-                <p className="truncate body-medium text-on-surface">
+                <p className="body-medium text-on-surface">
                   <span className="mr-1 text-on-surface-variant">凹</span>
                   {SKILL_CARD_BY_ID[p.weaknessId].weakness}
                 </p>
@@ -65,7 +65,7 @@ export function TeamPuzzleMerge({
               <span aria-label="을(를) 채워 줌" className="material-symbols-rounded text-[18px] text-outline">arrow_back</span>
               <div className="min-w-0">
                 <p className="label-small text-on-surface-variant">{p.coveredByNickname}의 돌기</p>
-                <p className="truncate body-medium text-primary">
+                <p className="body-medium text-primary">
                   <span className="mr-1">凸</span>
                   {SKILL_CARD_BY_ID[p.strengthId].strength}
                 </p>

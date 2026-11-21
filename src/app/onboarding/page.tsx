@@ -97,10 +97,8 @@ export default function OnboardingPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [step, deepOpen]);
 
-  const toggle = <T,>(list: T[], v: T, max: number, set: (n: T[]) => void) => {
-    if (list.includes(v)) set(list.filter((x) => x !== v));
-    else if (list.length < max) set([...list, v]);
-  };
+  const toggle = <T,>(_list: T[], v: T, max: number, set: React.Dispatch<React.SetStateAction<T[]>>) =>
+    set((list) => (list.includes(v) ? list.filter((x) => x !== v) : list.length < max ? [...list, v] : list));
 
   const missing: string[] = useMemo(() => {
     if (step === 0) {
@@ -320,7 +318,7 @@ export default function OnboardingPage() {
                 <div className="divide-y divide-outline-variant">
                   {g.items.map((q) => {
                     qIndex += 1;
-                    return <LikertRow key={q.key} q={q} index={qIndex} value={answers[q.key]} onChange={(v) => setAnswers({ ...answers, [q.key]: v })} />;
+                    return <LikertRow key={q.key} q={q} index={qIndex} value={answers[q.key]} onChange={(v) => setAnswers((a) => ({ ...a, [q.key]: v }))} />;
                   })}
                 </div>
               </section>
@@ -341,7 +339,7 @@ export default function OnboardingPage() {
                       ariaLabel={`${r.label} 숙련도`}
                       dense
                       value={skills[r.id] ?? null}
-                      onChange={(v) => setSkills({ ...skills, [r.id]: v })}
+                      onChange={(v) => setSkills((sk) => ({ ...sk, [r.id]: v }))}
                       options={SKILL_LEVEL_LABELS.map((l, i) => ({ value: i, label: <span><span className="tabular">{i}</span><span className="hidden sm:inline"> {l}</span></span> }))}
                     />
                   </div>
@@ -449,7 +447,7 @@ export default function OnboardingPage() {
                 <h2 className="title-large">{g.title}</h2>
                 <div className="divide-y divide-outline-variant">
                   {g.items.map((q, i) => (
-                    <LikertRow key={q.key} q={q} index={gi * 5 + i + 1} value={answers[q.key]} onChange={(v) => setAnswers({ ...answers, [q.key]: v })} />
+                    <LikertRow key={q.key} q={q} index={gi * 5 + i + 1} value={answers[q.key]} onChange={(v) => setAnswers((a) => ({ ...a, [q.key]: v }))} />
                   ))}
                 </div>
               </section>

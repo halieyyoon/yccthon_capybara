@@ -106,7 +106,7 @@ export default function ProfilePage() {
                   updateTemperatureMode(m);
                   setSnack(`${TEMPERATURE_BY_ID[m].temperature}°로 바꿨어요. 퍼즐 모양도 바뀌었어요.`);
                 }}
-                options={TEMPERATURE_MODES.map((t) => ({ value: t.id, label: <span className="tabular">{t.temperature}° {t.short}</span> }))}
+                options={TEMPERATURE_MODES.map((t) => ({ value: t.id, label: <span className="tabular">{t.temperature}°<span className="hidden sm:inline"> {t.short}</span></span> }))}
               />
             </div>
           </div>
@@ -263,13 +263,13 @@ export default function ProfilePage() {
                     <div className="flex items-start justify-between gap-3">
                       <p className="body-medium text-on-surface">{q.text}</p>
                       {draft[k] != null && (
-                        <button type="button" className="shrink-0 label-medium text-primary" onClick={() => setDraft({ ...draft, [k]: null })}>
+                        <button type="button" className="shrink-0 label-medium text-primary" onClick={() => setDraft((d) => ({ ...d, [k]: null }))}>
                           비우기
                         </button>
                       )}
                     </div>
                     <div className="mt-2">
-                      <SegmentedButton ariaLabel={q.text} dense value={draft[k] ?? null} onChange={(v) => setDraft({ ...draft, [k]: v })} options={[1, 2, 3, 4, 5].map((v) => ({ value: v, label: String(v) }))} />
+                      <SegmentedButton ariaLabel={q.text} dense value={draft[k] ?? null} onChange={(v) => setDraft((d) => ({ ...d, [k]: v }))} options={[1, 2, 3, 4, 5].map((v) => ({ value: v, label: String(v) }))} />
                       <div className="mt-1 flex justify-between px-1 body-small">
                         <span>{LIKERT_LABELS[0]}</span>
                         <span>{LIKERT_LABELS[4]}</span>
