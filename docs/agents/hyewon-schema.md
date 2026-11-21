@@ -1,7 +1,7 @@
-# AI Agent 작업 지침서 — 혜원 (Schema · Seed 100명 · Clustering · AI API)
+# AI Agent 작업 지침서 — 혜원 (Schema · 27차원 피처 · Seed 100명 · Clustering · AI API)
 
-> **필독 기준 문서**: 루트의 [`SPEC.md`](../../SPEC.md)  
-> 이 문서는 **혜원 담당 AI 에이전트**가 바로 구현에 착수할 수 있도록 소유 파일, 상세 요구사항, 완료 기준을 정리한 지침서입니다.
+> **필독 기준 문서**: 루트의 [`SPEC.md`](../../SPEC.md) 및 [`docs/proposal/08-팀원매칭척도및설문설계.md`](../proposal/08-팀원매칭척도및설문설계.md)  
+> 이 문서는 **혜원 담당 AI 에이전트**가 바로 구현에 착수할 수 있도록 소유 파일, 27차원 스키마·군집 로직, API 요구사항, 완료 기준을 정리한 지침서입니다.
 
 ---
 
@@ -9,67 +9,70 @@
 
 - **수정 가능**: `src/types/`, `src/data/`, `src/lib/matching/`, `src/app/api/`
 - **수정 금지**: `src/components/` (연서 소유), `src/store/` 및 `src/app/**/page.tsx` (규혁 소유)
-- **주의**: `src/types/ondo.ts`의 인터페이스/타입 이름은 `SPEC.md` 3장과 **100% 동일**해야 규혁·연서의 코드와 바로 붙습니다.
+- **주의**: `src/types/ondo.ts`는 `SPEC.md` 4장의 타입·필드명(`featureSchemaVersion = "v1.0"`, `Features27` 등)과 **100% 일치**해야 합니다.
 
 ---
 
 ## 2. 구현 태스크 목록 (우선순위 순)
 
-### Task 1. 공통 타입 & 도메인 상수 (`src/types/ondo.ts`, `src/data/constants.ts`)
-- `SPEC.md` 3장의 모든 TypeScript 타입을 `src/types/ondo.ts`로 생성
-- `src/data/constants.ts`에 다음 상수 배열/맵 정의:
+### Task 1. 공통 타입 & 27차원 도메인 상수 (`src/types/ondo.ts`, `src/data/constants.ts`)
+- `SPEC.md` 4장의 모든 TypeScript 타입을 `src/types/ondo.ts`로 생성
+- `src/data/constants.ts`에 다음 상수 정의:
+  - `FEATURE_META_27`: 27개 피처의 고정 순서 배열 (`index 0~26`, `key`, `group`, `label`, `min`, `max`, `optional`)
+  - `SURVEY_QUESTIONS`: `08번 문서` 3장의 자체 개발 문항 기반 — **필수 2분 온보딩 문항**(목표 4 + AI 규범 3 + 작업방식 4 + 역량 6)과 **선택 심화 문항**(성격 5 + 갈등 5)을 명확히 분리
   - `TEMPERATURE_MODES` (`fun` 36.5° / `balanced` 65° / `serious` 90°)
-  - `COLLAB_AXES` (4축 질문 4개와 `A/M`, `P/S`, `D/H`, `B/V` 메타데이터)
-  - `SKILL_CARDS` (12종 — `id`, `strengthLabel`, `weaknessLabel`, `category`, `puzzleShapeKey`)
-  - `DEAL_BREAKERS` (8종 — `id`, `label`, `description`)
-  - `AI_STYLES` (3종 — `ai_accelerator`, `ai_verifier`, `manual_first`)
-  - `COMPATIBILITY_MATRIX_16X16`: `Record<CollabType, Record<CollabType, 1 | 2 | 3 | 4 | 5>>`  
-    *(참고: `reference/mbti matching matrix/`의 5단계 범례 `5=ideal, 4=good, 3=one_sided, 2=workable, 1=caution`에 맞춰 대칭/논리적 규칙으로 16×16 전체 작성)*
+  - `SKILL_CARDS` (12종 장단점 1:1 보완 쌍), `DEAL_BREAKERS` (8종), `ROLES` (6종)
+  - `COMPATIBILITY_MATRIX_16X16`: `Record<CollabType, Record<CollabType, 1 | 2 | 3 | 4 | 5>>`
+  - **헬퍼 함수**: `deriveCollabType(features: Features27): CollabType` (`SPEC.md` 3.2 규칙으로 27차원에서 16유형 자동 도출)
 
-### Task 2. 연세대 시드 데이터 100명 + 공모전 8건 (`src/data/seedUsers.ts`, `src/data/seedContests.ts`)
-- **`seedUsers.ts` (정확히 100명)**:
-  - 다양한 연세대 학과 분포(컴퓨터과학, 경영, 디자인/시각디자인, 통계/응용통계, 산업공학, 전기전자, 경제, 언론홍보영상, 심리, 문헌정보 등 12개 이상 전공)
+### Task 2. 연세대 합성 시드 데이터 100명 + 공모전 8건 (`src/data/seedUsers.ts`, `src/data/seedContests.ts`)
+- **`seedUsers.ts` (정확히 100명, 합성 데모 데이터임을 주석 명시)**:
+  - 연세대 12개 이상 전공 분포(컴퓨터과학, 경영, 디자인, 통계, 산업공학, 전기전자, 경제, 언론홍보영상, 심리, 문헌정보 등)
   - 온도 분포: `fun(36.5°)` ~30명, `balanced(65°)` ~35명, `serious(90°)` ~35명
-  - 16유형(`CollabType`)과 12종 장단점 카드가 고르게 분포하되, **현실적인 전공-장단점 상관관계** 반영 (예: 컴공은 `frontend`/`backend` 강점·`pitching`/`ui_design` 약점 비율 높음, 경영은 `slide_story`/`pitching` 강점·`frontend`/`backend` 약점 비율 높음)
-  - 모든 100명은 **실제 같은 한국어 `nickname`, `realName`, `cv` 5섹션**을 모두 보유해야 팀 언락 화면(`/team/[teamId]`)에서 100% 풍부하게 보임
-  - **시연용 샘플 CV 텍스트 상수** (`SAMPLE_LINKEDIN_CV_TEXT`) 1개 함께 제공 (규혁·연서가 `/cv`의 “샘플 링크드인 PDF로 채워보기”에 사용)
+  - **27차원 결측 테스트 포함**: 100명 중 ~70명은 27차원 전체 보유, ~30명은 선택 심화 영역(`성격 5` 또는 `갈등 5`)이 `null` → 결측이 0으로 오염되지 않고 정상 동작하는지 검증 가능
+  - 전공과 역량(22~27)·장단점 카드 간 현실적 상관관계 반영
+  - 100명 모두 자연스러운 한국어 `nickname`, `realName`, 5섹션 `cv` 보유
+  - `SAMPLE_LINKEDIN_CV_TEXT` 1건 함께 export (시연용 원클릭 CV 자동 채우기용)
 - **`seedContests.ts` (8건)**:
-  - **대규모(`scale: 'large'`) 4건**: 예) YCCthon 2026 해커톤, 전국 대학생 AI 창업 경진대회, 핀테크 서비스 기획 공모전, 대학생 ESG 데이터 챌린지 → 각각 `pilotTopics` 3개씩 포함
-  - **소규모(`scale: 'small'`) 4건**: 예) 연세대 교내 주말 미니 해커톤, 2주 UI/UX 리디자인 스터디 프로젝트, 교내 데이터 시각화 챌린지, 자유 사이드 프로젝트 → `pilotTopics: []`
+  - 대규모(`scale: 'large'`) 4건 (`pilotTopics` 각 3개 포함, `requiredRoles` 포함)
+  - 소규모(`scale: 'small'`) 4건 (`pilotTopics: []`)
 
-### Task 3. 1단계 High-Dimensional Cluster Analysis 엔진 (`src/lib/matching/clusterEngine.ts`)
-- **Export 함수 1**: `runClusterAnalysis(currentUser: UserProfile, pool: UserProfile[]): ClusteredPoint[]`
-  - 총 101명(`currentUser` + 100명 시드)을 21차원 수치 벡터로 인코딩
-  - 결정론적 시드 기반 K-Means(`K = 5`) 클러스터링 수행 (매번 새로고침해도 좌표가 날뛰지 않게 고정 시드 사용)
-  - 2D PCA(또는 2축 선형 투영: X축=온도·리듬·실행 성향, Y축=AI·기여초점 성향 + 분산 정규화)로 `(-100 ~ 100)` 좌표 산출
-- **Export 함수 2**: `recommendTeams(currentUser: UserProfile, pool: UserProfile[], contest: Contest, clusteredPoints: ClusteredPoint[]): { teams: TeamCandidate[]; annotatedPoints: ClusteredPoint[] }`
-  - `currentUser`의 클러스터 및 인접 클러스터 후보군에서 3명을 조합해 상위 3개 팀(`rank: 1 | 2 | 3`) 생성
-  - **점수 계산식**:
-    - `temperatureFit` (0~25): 팀원 온도 분산이 작고 `currentUser`와 일치할수록 고점
-    - `matrixCompatibility` (0~25): 4인 중 6개 페어의 `COMPATIBILITY_MATRIX_16X16` 평균(1~5 → 0~25 변환)
-    - `puzzleComplement` (0~35): 팀 내 8개 약점 중 다른 팀원의 장점으로 덮이는 비율 (`puzzlePairs` 배열 정확히 생성!)
-    - `aiStyleFit` (0~15): AI 활용 스타일 조화도
-    - `dealBreakerPenalty` (0~25 감점): `SPEC.md` 2.4 규칙 기반 충돌 감점
-  - `annotatedPoints`: 1순위 추천 팀원 3명에 `isRecommendedTeammate: true`, 본인에 `isCurrentUser: true` 마킹
+### Task 3. 1단계 27차원 Gower + PAM 군집 탐색 & 팀 수준 최적화 (`src/lib/matching/clusterEngine.ts`)
+`08번 문서` 4~5장의 통계적 원칙을 정확히 구현합니다.
+- **절대 규칙**:
+  - **결측(`null`)은 절대 0으로 치환하지 않음** — 두 사용자 간 Gower 거리는 둘 다 관측된 유효 차원만 사용해 그룹별 균형 가중치로 계산
+  - 학번·이름·이메일 및 `hardConstraints`/`preferredRoles`는 **27차원 거리 계산에 넣지 않음**
+  - **같은 군집 사람만 묶지 않음** — 군집은 후보 탐색·다양화·시각화 보조 계층이며, 최종 추천은 팀 수준 최적화 점수로 결정
+- **Export 1**: `runClusterAnalysis(currentUser: UserProfile, pool: UserProfile[]): ClusteredPoint[]`
+  - 101명(`currentUser` + 100명 시드)의 27차원 그룹 가중 Gower 거리 행렬 계산
+  - 결정론적 시드 기반 **PAM (k-medoids, `k = 5`)** 군집 할당
+  - 거리 행렬 기반 2D 탐색 시각화 좌표 `(x, y)` 산출 (`-100 ~ 100` 정규화) + `missingCount` 기록
+- **Export 2**: `recommendTeams(currentUser: UserProfile, pool: UserProfile[], contest: Contest, clusteredPoints: ClusteredPoint[]): { teams: TeamCandidate[]; annotatedPoints: ClusteredPoint[] }`
+  - 1차 하드 제약 필터(행사 조건·희망 역할 고려) 후, 군집 다양성을 반영해 4인 조합 후보 생성
+  - **팀 수준 점수식 (MVP 4개 가용 지표 가중치 재조정, 합계 1.0)**:
+    - `goalAlignment` (`× 0.3750`): 목표 4차원(06~09) 팀 내 분산이 작을수록 고점
+    - `roleCoverage` (`× 0.3125`): `contest.requiredRoles` 및 6개 역량(22~27) 커버리지 + 장단점 퍼즐 보완율 (`puzzlePairs` 정확히 생성)
+    - `aiPolicyAlignment` (`× 0.1875`): AI 규범 3차원(15~17) 일치도 (중대한 규범 충돌 별도 페널티)
+    - `collaborationCompatibility` (`× 0.1250`): 작업방식 4차원 + (관측 시) 갈등 5차원 + 16×16 매트릭스 + 협업 지뢰 충돌 확인
+    - `scheduleOverlap: null` *(v2 예약)*
+    - **성격 5차원(01~05)은 점수식에서 제외** (설명·모의회의 맥락에만 활용)
+  - 각 팀에 **`minMemberFit`(가장 불리한 팀원의 적합도)**, **`biggestGapNote`(가장 큰 차이 쟁점 1줄)**, **`evidenceTags`(응답 근거 태그 3개)**, 결측 시 `missingInfoNotice` 필수 산출
 
 ### Task 4. 실제 Gemini API 라우트 3종 (`src/app/api/...`)
-- 환경 변수: `GEMINI_API_KEY` (`.env.local`), 모델: `gemini-2.5-flash` (`responseMimeType: "application/json"`)
-- **공통 필수 규칙**: `GEMINI_API_KEY`가 없거나 네트워크/할당량 오류가 나도 **절대 500 에러로 데모가 깨지지 않도록**, 각 API마다 자연스러운 한국어 **폴백 응답(Fallback)**을 반드시 구현할 것!
-- **① `src/app/api/avatar-meeting/route.ts` (`POST`)**:
-  - 입력: `{ contest, team }` → 출력: `AvatarMeetingResult`
-  - 프롬프트 요구: 4명 각자의 `nickname`, `collabType`, `strengths`, `weaknesses`, `aiStyle` 성격이 실제 말투에 드러나는 **6턴 가상 첫 회의** + 3~4줄 요약 + 첫 회의 합의 포인트 1줄 + `chemistryBadge` 생성
-- **② `src/app/api/pilot-chat/route.ts` (`POST`)**:
-  - 입력: `{ contestTitle, topic, teamMembers, messages, workspace, userMessage }`
-  - 출력: `{ replies: PilotMessage[], suggestedWorkspacePatch?: Partial<PilotWorkspace> }`
-  - 프롬프트 요구: 시드 팀원 3명 중 맥락에 맞는 1~2명이 각자의 강점·말투로 짧고 현실적인 대학생 팀플 대화(1~2문장)로 응답 + 대화 내용에 따라 1페이지 공유 메모(`problemStatement`/`solutionIdea`/`roleSplit`) 자동 업데이트 제안 반환
-- **③ `src/app/api/parse-cv/route.ts` (`POST`)**:
-  - `multipart/form-data`(PDF 파일 → 텍스트 추출) 및 JSON `{ rawText }` 둘 다 지원
-  - 출력: `{ cv: Partial<CvTemplate>, suggestedStrengths?: SkillCardId[], suggestedAiStyle?: AiStyle }`
+- 모델: `gemini-2.5-flash`, `responseMimeType: "application/json"`, **API 키 누락·오류 시 100% 동작하는 한국어 폴백 필수**
+- **프라이버시 규칙**: LLM에 `realName`·`email` 등 **개인 식별정보는 절대 전송하지 않음** (`nickname` + 27차원 응답 근거 + 장단점 + 지뢰만 전송)
+- **① `POST /api/avatar-meeting`**:
+  - 공통 안건(예: *“20분 안에 이번 대회의 핵심 MVP 기능 1개와 역할 분담 합의하기”*) 부여
+  - **군집 라벨이 아닌 각 멤버의 실제 27차원 응답 근거**를 바탕으로 6턴 대화 + `consensus`(합의안) + `unresolvedIssues`(미해결 쟁점) + `expectedRoleSplit`(예상 역할 분담) + `questionsToAskTeam`(실제 팀원에게 확인할 질문 2~3개) 반환
+- **② `POST /api/pilot-chat`**:
+  - 시드 팀원 3명 중 맥락에 맞는 1~2명이 각자의 실제 27차원 성향·역량 말투로 응답 + `suggestedWorkspacePatch` 제안
+- **③ `POST /api/parse-cv`**:
+  - PDF 업로드(`multipart/form-data`) 및 `{ rawText }` JSON 지원 → 5섹션 `CvTemplate` 자동 추출
 
 ---
 
 ## 3. 완료 체크리스트 (Acceptance Criteria)
 - [ ] `npx tsc --noEmit` 타입 에러 0건
-- [ ] 100명 시드 유저가 12개 이상 전공, 3종 온도, 16유형에 현실적으로 분포하고 누락 필드 없음
-- [ ] `recommendTeams()` 실행 시간 `< 100ms`, `puzzlePairs`가 실제 장단점 ID 일치로 정확히 매핑됨
-- [ ] 3개 API 모두 `GEMINI_API_KEY` 있을 때 정상 JSON 응답 + 키 없을 때 폴백 JSON 정상 응답 확인
+- [ ] 27차원 피처 순서·키가 `08번 문서` `v1.0`과 100% 일치하고 결측(`null`)을 0으로 치환하지 않음
+- [ ] `recommendTeams()`가 `< 150ms` 내 상위 3팀 + `minMemberFit` + `biggestGapNote` + `evidenceTags` 반환
+- [ ] 3개 API 모두 실 LLM 응답 + 폴백 응답 정상 동작 및 개인 식별정보 미전송 확인
