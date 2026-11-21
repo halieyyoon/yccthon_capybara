@@ -1,10 +1,10 @@
 'use client';
 
-// 소유: 규혁 — 2) `/onboarding` 2분 필수 온보딩 (+ 선택 심화)
-// 구조(퍼즐 궁합 매트릭스 시안): ① ‘내 조각’ 16문항 — 한 화면 한 문항 · 2지선다 · 답할수록 조각 완성
+// 소유: 규혁 — 2) `/onboarding` 온보딩
+// 구조(퍼즐 궁합 매트릭스 시안): ① ‘내 조각’ 설문(섹션 A~F) — 한 화면 한 문항 · 문항마다 맞는 형식 · 답할수록 조각 완성
 //   (목표·AI 규범·작업 방식·역량·장단점 카드·협업 지뢰도 이 답으로 채움 → 리커트·역량 화면 없음)
-//   → ② 결과 ‘내 조각이 나왔어요!’(16유형 · 딱 맞물리는 짝 · 포개지는 쌍둥이) → ③ 기본 정보 → ④ 성격·갈등(선택)
-// ④를 건너뛰면 성격·갈등 10개 차원은 null.
+//   → ② 결과 ‘내 조각이 나왔어요!’(16유형 · 딱 맞물리는 짝 · 포개지는 쌍둥이) → ③ 기본 정보 → CV
+// 성격·갈등도 설문(D·E 섹션)에서 받아 27차원 전부 채움. 공모전마다 달라지는 온도·시간은 프로필에서.
 // 끝나면 CV 작성으로 이어짐(프로필 = 퍼즐 + CV, 05 workflow) — CV는 건너뛸 수 있음.
 
 import { useRouter } from 'next/navigation';
@@ -56,40 +56,9 @@ import {
   tagsOf,
 } from '@/store/pieceTypes';
 
-type Answers = Partial<Record<FeatureKey, number>>;
 
-const STEP_TITLES = ['기본 정보', '조금 더 (선택)'];
-const OPTIONAL_LIKERT = SURVEY_QUESTIONS.optional.flatMap((g) => g.items);
 
-function LikertRow({ q, value, onChange, index }: { q: SurveyQuestion; value: number | undefined; onChange: (v: number) => void; index: number }) {
-  return (
-    <div className="py-4">
-      <p className="body-large text-on-surface">
-        <span className="tabular mr-2 text-on-surface-variant">{index}</span>
-        {q.text}
-      </p>
-      <div className="mt-3">
-        <SegmentedButton ariaLabel={q.text} dense value={value ?? null} onChange={onChange} options={[1, 2, 3, 4, 5].map((v) => ({ value: v, label: String(v) }))} />
-        <div className="mt-1 flex justify-between px-2 label-small text-on-surface-variant">
-          <span>{LIKERT_LABELS[0]}</span>
-          <span>{LIKERT_LABELS[4]}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-function Section({ title, tip, children }: { title: string; tip?: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-m3-md bg-surface p-5 md:p-6">
-      <h2 className="mb-4 flex items-center gap-1 title-large">
-        {title}
-        {tip && <InfoTip align="start">{tip}</InfoTip>}
-      </h2>
-      {children}
-    </section>
-  );
-}
 
 const optionCls = (sel: boolean) =>
   cx(
@@ -281,7 +250,7 @@ function PieceResultScreen({ code, onContinue, onRetry }: { code: PieceCode; onC
         </div>
         <p className="mt-2 flex items-center justify-center gap-1 body-small text-on-surface-variant">
           {PIECE_TYPES[match].name}과는 네 변이 전부 반대라 딱 맞물려요
-          <InfoTip>4문항 답으로 정한 협업 성향 조각이에요(심리검사 아님). 실제 팀 추천은 다음 단계의 응답까지 함께 보고 정해요.</InfoTip>
+          <InfoTip>설문 답으로 정한 협업 성향 조각이에요(심리검사 아님). 팀 추천도 같은 답을 바탕으로 해요.</InfoTip>
         </p>
 
         <div className="mt-auto space-y-2 pt-8">
@@ -308,62 +277,21 @@ export default function OnboardingPage() {
   const setJustOnboarded = useOndoStore((s) => s.setJustOnboarded);
   const setMyPiece = useOndoStore((s) => s.setMyPiece);
 
-  // ① 내 조각 4문항 → ② 결과 → ③ 매칭 정보(Step 1~4)
-  const [phase, setPhase] = useState<'piece' | 'result' | 'profile'>('piece');
+  // ① 내 조각 설문 → ② 결과 → CV(닉네임·전공·학년은 CV ‘기본 정보’에서)
+  const [phase, setPhase] = useState<'piece' | 'result'>('piece');
   const [pieceStep, setPieceStep] = useState(0);
   const [pieceAnswers, setPieceAnswers] = useState<PieceAnswers>(emptyPieceAnswers);
   const pieceCode = codeFromAnswers(pieceAnswers);
 
-  const [step, setStep] = useState(0);
-  const [startedAt] = useState(() => Date.now());
-  const [elapsed, setElapsed] = useState(0);
-
-  const [nickname, setNickname] = useState('');
-  const [major, setMajor] = useState('');
-  const [grade, setGrade] = useState<string>('');
-  const [offline, setOffline] = useState(true);
-  const [night, setNight] = useState(false);
-
-  const [answers, setAnswers] = useState<Answers>({});
-  const [deepOpen, setDeepOpen] = useState(false);
-
-  useEffect(() => {
-    const t = setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 1000);
-    return () => clearInterval(t);
-  }, [startedAt]);
-
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [step, deepOpen, phase, pieceStep]);
+  }, [phase, pieceStep]);
 
-  const toggle = <T,>(v: T, max: number, set: React.Dispatch<React.SetStateAction<T[]>>) =>
-    set((list) => (list.includes(v) ? list.filter((x) => x !== v) : list.length < max ? [...list, v] : list));
-
-  const missing: string[] = useMemo(() => {
-    if (step !== 0) return [];
-    const m: string[] = [];
-    if (!nickname.trim()) m.push('닉네임');
-    if (!major.trim()) m.push('전공');
-    return m;
-  }, [step, nickname, major]);
-
-  const answered = [nickname.trim(), major.trim()].filter(Boolean).length / 2;
-
-  const finish = (withOptional: boolean) => {
+  const finish = () => {
+    // 27차원 전부 설문 답에서 (성격·갈등 포함). 참여 온도·주당 시간은 기본값 — 프로필에서 대회마다 바꿈
     const survey = featuresFromSurvey(pieceAnswers);
     const mode = survey.temperatureMode;
-    const val = (q: SurveyQuestion) => {
-      const raw = answers[q.key];
-      if (raw === undefined) return null;
-      return q.reverse ? 6 - raw : raw;
-    };
-    const optional = Object.fromEntries(
-      OPTIONAL_FEATURE_KEYS.map((k) => {
-        const q = OPTIONAL_LIKERT.find((x) => x.key === k)!;
-        return [k, withOptional ? val(q) : null];
-      }),
-    );
-    const features27 = { ...optional, ...survey.features } as unknown as Features27;
+    const features27: Features27 = survey.features;
     let email = 'me@yonsei.ac.kr';
     try {
       email = sessionStorage.getItem('ondo_signup_email') ?? email;
@@ -371,14 +299,15 @@ export default function OnboardingPage() {
     const temp = TEMPERATURE_MODES.find((m) => m.id === mode)!;
     const user: UserProfile = {
       id: `me-${Math.random().toString(36).slice(2, 8)}`,
-      nickname: nickname.trim(),
+      // 닉네임·전공·학년은 CV ‘기본 정보’에서 입력 — 우선 조각 이름으로 시작
+      nickname: PIECE_TYPES[pieceCode ?? 'IMGA'].name,
       email,
       featureSchemaVersion: FEATURE_SCHEMA_VERSION,
       temperatureMode: mode,
       temperature: temp.temperature,
       features27,
       preferredRoles: survey.preferredRoles,
-      hardConstraints: { weeklyHours: survey.weeklyHours, offlineAvailable: offline, nightWorkAvailable: night },
+      hardConstraints: { weeklyHours: survey.weeklyHours, offlineAvailable: survey.offlineAvailable, nightWorkAvailable: survey.nightWorkAvailable },
       collabType: deriveCollabType(features27),
       strengths: survey.strengths,
       weaknesses: survey.weaknesses,
@@ -387,8 +316,8 @@ export default function OnboardingPage() {
       cv: {
         realName: '',
         university: '연세대학교',
-        major: major.trim(),
-        grade,
+        major: '',
+        grade: '',
         headline: '',
         experiences: [],
         skills: [],
@@ -431,7 +360,7 @@ export default function OnboardingPage() {
     return (
       <PieceResultScreen
         code={pieceCode}
-        onContinue={() => setPhase('profile')}
+        onContinue={finish}
         onRetry={() => {
           setPieceAnswers(emptyPieceAnswers());
           setPieceStep(0);
@@ -441,119 +370,5 @@ export default function OnboardingPage() {
     );
   }
 
-  const optionalLeft = OPTIONAL_LIKERT.filter((q) => answers[q.key] === undefined).length;
-  const mm = String(Math.floor(elapsed / 60));
-  const ss = String(elapsed % 60).padStart(2, '0');
-  let qIndex = 0;
-
-  return (
-    <div className="min-h-dvh bg-page pb-32">
-      <header className="sticky top-0 z-30 bg-page/95 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 max-w-3xl items-center gap-2 px-4">
-          <IconButton
-            icon="arrow_back"
-            label={step === 0 ? '내 조각으로' : '이전'}
-            onClick={() => (step === 0 ? setPhase('result') : deepOpen ? setDeepOpen(false) : setStep(step - 1))}
-          />
-          <div className="min-w-0">
-            <p className="label-small text-on-surface-variant">매칭 정보 · {step + 1}/2</p>
-            <h1 className="truncate title-large">{STEP_TITLES[step]}</h1>
-          </div>
-          <p className="tabular ml-auto rounded-full bg-surface px-3 py-1 label-large text-on-surface-variant shadow-[0_0_0_1px_var(--md-sys-color-outline-variant)]" aria-label="경과 시간">
-            {mm}:{ss}
-          </p>
-        </div>
-        <div className="mx-auto max-w-3xl px-4">
-          <LinearProgress value={step === 1 ? 1 : answered} />
-        </div>
-      </header>
-
-      <main className="page-enter mx-auto max-w-3xl space-y-4 px-4 pt-6" key={`${step}-${deepOpen}`}>
-        {step === 0 && (
-          <>
-            <Section title="나">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <TextField label="닉네임" value={nickname} onChange={(e) => setNickname(e.target.value.slice(0, 12))} />
-                <TextField label="전공" value={major} onChange={(e) => setMajor(e.target.value)} placeholder="컴퓨터과학과" />
-                <div className="grid gap-1.5 sm:col-span-2">
-                  <span className="label-medium text-on-surface-variant">학년 (선택)</span>
-                  <SegmentedButton ariaLabel="학년" value={grade || null} onChange={setGrade} options={['1', '2', '3', '4'].map((g) => ({ value: `${g}학년`, label: `${g}학년` }))} />
-                </div>
-              </div>
-            </Section>
-
-
-            <Section title="여건">
-              <div className="space-y-4">
-                <div className="space-y-1 rounded-m3-md bg-surface-container-low p-1">
-                  <label className="flex items-center gap-3 px-4 py-3">
-                    <Icon name="apartment" className="text-on-surface-variant" />
-                    <span className="flex-1 body-large">오프라인 가능</span>
-                    <Switch checked={offline} onChange={setOffline} label="오프라인 가능" />
-                  </label>
-                  <label className="flex items-center gap-3 px-4 py-3">
-                    <Icon name="bedtime" className="text-on-surface-variant" />
-                    <span className="flex-1 body-large">밤샘 가능</span>
-                    <Switch checked={night} onChange={setNight} label="밤샘 가능" />
-                  </label>
-                </div>
-              </div>
-            </Section>
-          </>
-        )}
-
-        {step === 1 && !deepOpen && (
-          <div className="rounded-m3-md bg-surface px-6 py-10 text-center">
-            <p className="tabular display-small text-primary">
-              {mm}:{ss}
-            </p>
-            <h2 className="mt-2 headline-small">필수는 끝났어요</h2>
-            <p className="mt-2 flex items-center justify-center gap-1 body-medium text-on-surface-variant">
-              성격·갈등 10문항을 더 답할까요?
-              <InfoTip>더 답하면 팀원과의 차이를 조금 더 정확히 짚어요. 건너뛴 항목은 0점이 아니라 ‘미응답’으로 남고 점수에서 빠져요. 프로필에서 언제든 추가할 수 있어요.</InfoTip>
-            </p>
-            <div className="mt-8 flex flex-col gap-2 sm:flex-row sm:justify-center">
-              <Button size="lg" variant="outlined" onClick={() => finish(false)}>
-                건너뛰고 바로 퍼즐 보기
-              </Button>
-              <Button size="lg" icon="add" onClick={() => setDeepOpen(true)}>
-                1분 더 답하고 정밀도 높이기
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {step === 1 &&
-          deepOpen &&
-          SURVEY_QUESTIONS.optional.map((g, gi) => (
-            <Section key={g.group} title={g.title} tip={gi === 0 ? '검증 전 임시 문항이에요. 진단이 아니라 대화 주제를 찾는 데 써요.' : undefined}>
-              <div className="-my-2 space-y-1">
-                {g.items.map((q, i) => (
-                  <LikertRow key={q.key} q={q} index={gi * 5 + i + 1} value={answers[q.key]} onChange={(v) => setAnswers((a) => ({ ...a, [q.key]: v }))} />
-                ))}
-              </div>
-            </Section>
-          ))}
-      </main>
-
-      {(step < 1 || deepOpen) && (
-        <footer className="fixed inset-x-0 bottom-0 z-30 bg-surface shadow-[0_-1px_3px_rgba(32,33,36,.08)]">
-          <div className="mx-auto flex max-w-3xl items-center gap-4 px-4 py-3">
-            <p className="min-w-0 flex-1 truncate body-medium text-on-surface-variant">
-              {step === 1 ? (optionalLeft ? `${optionalLeft}문항 남음` : '모두 답했어요') : missing.length ? `남음 · ${missing.join(', ')}` : ''}
-            </p>
-            {step < 1 ? (
-              <Button icon="arrow_forward" disabled={missing.length > 0} onClick={() => setStep(step + 1)}>
-                다음
-              </Button>
-            ) : (
-              <Button icon="extension" onClick={() => finish(true)}>
-                퍼즐 완성하기
-              </Button>
-            )}
-          </div>
-        </footer>
-      )}
-    </div>
-  );
+  return null;
 }

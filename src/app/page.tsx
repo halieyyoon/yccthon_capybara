@@ -11,7 +11,7 @@ import { Wordmark } from '@/components/AppShell';
 import { useOndoStore } from '@/store/useOndoStore';
 
 const STEPS = [
-  { icon: 'extension', title: '2분 퍼즐', tip: '목표·AI 쓰는 방식·일하는 방식·역량을 고르면, 채워 줄 수 있는 것(凸)과 채워 줄 사람이 필요한 것(凹)이 퍼즐로 정리돼요.' },
+  { icon: 'extension', title: '2분 퍼즐', tip: '목표·AI 쓰는 방식·일하는 방식·역량을 고르면, 채워 줄 수 있는 것과 채워 줄 사람이 필요한 것이 퍼즐로 정리돼요.' },
   { icon: 'hub', title: '맞물리는 4인 조합', tip: '목표는 비슷하고 역량은 서로 채워 주는 조합을 찾아요. 왜 추천했는지 응답 근거를 함께 보여 줘요.' },
   { icon: 'forum', title: '만나기 전 미리 굴려 보기', tip: '큰 대회는 AI 아바타 모의회의와 20분 파일럿으로 먼저 맞춰 봐요. 서로 수락해야만 실명이 열려요.' },
 ];

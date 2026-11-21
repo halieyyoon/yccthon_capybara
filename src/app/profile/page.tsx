@@ -190,7 +190,7 @@ export default function ProfilePage() {
                   {quadrantOf(myPiece)} · {myPiece} {PIECE_TYPES[myPiece].title}
                 </p>
               </div>
-              <InfoTip align="end">딱 맞물리는 짝은 {PIECE_TYPES[perfectMatch(myPiece)].name}이에요. 4문항 답으로 정한 협업 성향 조각이에요(심리검사 아님).</InfoTip>
+              <InfoTip align="end">딱 맞물리는 짝은 {PIECE_TYPES[perfectMatch(myPiece)].name}이에요. 설문 답으로 정한 협업 성향 조각이에요(심리검사 아님).</InfoTip>
             </Card>
           )}
           <Card className="space-y-1 p-1">

@@ -74,7 +74,6 @@ export function TeamPuzzleMerge({ team, unlocked, pieceCodes }: { team: TeamCand
               <div className="min-w-0">
                 <p className="label-small text-on-surface-variant">{p.weaknessOwnerNickname}</p>
                 <p className="body-medium text-on-surface">
-                  <span className="mr-1 text-on-surface-variant">凹</span>
                   {SKILL_CARD_BY_ID[p.weaknessId].weakness}
                 </p>
               </div>
@@ -82,7 +81,6 @@ export function TeamPuzzleMerge({ team, unlocked, pieceCodes }: { team: TeamCand
               <div className="min-w-0">
                 <p className="label-small text-on-surface-variant">{p.coveredByNickname}</p>
                 <p className="body-medium text-primary">
-                  <span className="mr-1">凸</span>
                   {SKILL_CARD_BY_ID[p.strengthId].strength}
                 </p>
               </div>

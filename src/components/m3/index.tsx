@@ -481,14 +481,17 @@ export function Monogram({ name, tone = 'primary', size = 40 }: { name: string; 
  */
 export function InfoTip({ children, label = '설명 보기', align = 'center', className }: { children: ReactNode; label?: string; align?: 'start' | 'center' | 'end'; className?: string }) {
   const [open, setOpen] = useState(false);
-  const [shift, setShift] = useState(0);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
   const tipRef = useRef<HTMLSpanElement>(null);
   const id = useId();
+
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || tipRef.current?.contains(t)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
     document.addEventListener('pointerdown', onDown);
@@ -498,23 +501,40 @@ export function InfoTip({ children, label = '설명 보기', align = 'center', c
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
-  // 열릴 때 말풍선이 화면 좌우 밖으로 나가면 안쪽으로 밀어 넣음 (여백 8px)
+
+  // 말풍선은 body에 portal로 그려서 overflow:hidden 카드 안에서도 잘리지 않게 하고,
+  // 버튼 위치 기준으로 좌우는 화면 안쪽(여백 8px)에 맞추고, 아래 공간이 부족하면 위로 띄움
   useLayoutEffect(() => {
     if (!open) {
-      setShift(0);
+      setPos(null);
       return;
     }
-    const el = tipRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const vw = document.documentElement.clientWidth;
-    const pad = 8;
-    let dx = 0;
-    if (r.right > vw - pad) dx = vw - pad - r.right;
-    if (r.left + dx < pad) dx = pad - r.left;
-    if (dx !== 0) setShift(dx);
-  }, [open]);
-  const base = align === 'center' ? 'translateX(-50%)' : '';
+    const place = () => {
+      const btn = ref.current?.getBoundingClientRect();
+      const tip = tipRef.current?.getBoundingClientRect();
+      if (!btn) return;
+      const w = tip?.width ?? 0;
+      const h = tip?.height ?? 0;
+      const vw = document.documentElement.clientWidth;
+      const vh = window.innerHeight;
+      const pad = 8;
+      let left = align === 'start' ? btn.left : align === 'end' ? btn.right - w : btn.left + btn.width / 2 - w / 2;
+      left = Math.min(Math.max(left, pad), vw - pad - w);
+      let top = btn.bottom + 4;
+      if (top + h > vh - pad && btn.top - 4 - h > pad) top = btn.top - 4 - h;
+      setPos({ top, left });
+    };
+    place();
+    const raf = requestAnimationFrame(place);
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [open, align]);
+
   return (
     <span
       ref={ref}
@@ -532,22 +552,20 @@ export function InfoTip({ children, label = '설명 보기', align = 'center', c
       >
         <Icon name="info" size={16} />
       </button>
-      {open && (
-        <span
-          ref={tipRef}
-          id={id}
-          role="tooltip"
-          className={cx(
-            'absolute top-full z-40 mt-1 w-max max-w-[min(280px,calc(100vw-16px))] rounded-m3-sm bg-inverse-surface px-3 py-2 text-left body-small font-normal normal-case tracking-normal text-inverse-on-surface shadow-[0_4px_16px_rgba(32,33,36,.12)]',
-            align === 'start' && 'left-0',
-            align === 'center' && 'left-1/2',
-            align === 'end' && 'right-0',
-          )}
-          style={{ transform: `${base} translateX(${shift}px)` }}
-        >
-          {children}
-        </span>
-      )}
+      {open &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <span
+            ref={tipRef}
+            id={id}
+            role="tooltip"
+            className="fixed z-[60] w-max max-w-[min(280px,calc(100vw-16px))] rounded-m3-sm bg-inverse-surface px-3 py-2 text-left body-small font-normal normal-case tracking-normal text-inverse-on-surface shadow-[0_4px_16px_rgba(32,33,36,.12)]"
+            style={{ top: pos?.top ?? -9999, left: pos?.left ?? -9999, visibility: pos ? 'visible' : 'hidden' }}
+          >
+            {children}
+          </span>,
+          document.body,
+        )}
     </span>
   );
 }

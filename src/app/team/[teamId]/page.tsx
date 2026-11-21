@@ -182,7 +182,7 @@ export default function TeamPage() {
                     {revealed ? `${m.nickname} · ` : ''}
                     {m.cv.major} {m.cv.grade} · <span className="tabular">{TEMPERATURE_BY_ID[m.temperatureMode].temperature}°</span>
                   </p>
-                  <p className="mt-1 body-small text-on-surface">凸 {m.strengths.map((s) => SKILL_CARD_BY_ID[s].strength).join(', ')}</p>
+                  <p className="mt-1 body-small text-on-surface">잘하는 것 · {m.strengths.map((s) => SKILL_CARD_BY_ID[s].strength).join(', ')}</p>
                 </div>
                 <Button variant="text" onClick={() => setCvOf(m)} disabled={!revealed}>
                   CV

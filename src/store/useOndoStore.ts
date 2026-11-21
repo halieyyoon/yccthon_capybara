@@ -66,7 +66,7 @@ interface OndoState {
   consentCount: Record<string, number>;
   /** 온보딩을 막 마친 상태 — CV 작성으로 이어 주는 안내에 사용 (저장 안 함) */
   justOnboarded: boolean;
-  /** ‘내 조각’ 4문항 결과 (4축 16유형) */
+  /** ‘내 조각’ 설문 결과 (4축 16유형) */
   myPiece: PieceCode | null;
 
   initDemoUser: () => void;

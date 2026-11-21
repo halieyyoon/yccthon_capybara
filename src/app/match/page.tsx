@@ -146,7 +146,7 @@ function PairCompatView({ me, them, myCode, theirCode, onContinue }: { me: UserP
       </Button>
       <p className="mt-2 flex items-center justify-center gap-1 body-small text-on-surface-variant">
         {them.nickname}님의 조각
-        <InfoTip>4문항에 답하지 않은 사람의 조각은 매칭 응답으로 추정해요. 협업 성향 조각이에요(심리검사 아님).</InfoTip>
+        <InfoTip>설문에 답하지 않은 사람의 조각은 매칭 응답으로 추정해요. 협업 성향 조각이에요(심리검사 아님).</InfoTip>
       </p>
     </div>
   );
@@ -389,7 +389,7 @@ export default function MatchPage() {
                               <p className="body-small text-on-surface-variant">
                                 {m.cv.major} · <span className="tabular">{TEMPERATURE_BY_ID[m.temperatureMode].temperature}°</span> · {m.collabType}
                               </p>
-                              <p className="mt-1 body-small text-on-surface">凸 {m.strengths.map((s) => SKILL_CARD_BY_ID[s].strength).join(', ')}</p>
+                              <p className="mt-1 body-small text-on-surface">잘하는 것 · {m.strengths.map((s) => SKILL_CARD_BY_ID[s].strength).join(', ')}</p>
                             </div>
                             {lv && (
                               <span className="inline-flex h-6 shrink-0 items-center gap-1 self-start rounded-m3-xs bg-surface-container px-1.5 label-small text-on-surface-variant" title="협업 유형 16×16 참고표 (심리검사 진단 아님)">

@@ -1,6 +1,8 @@
-// 소유: 규혁 (src/store/) — ‘내 조각’ 설문(섹션 A~E, 22문항)과 16유형 (퍼즐 궁합 매트릭스 시안 구조)
-// 한 화면 한 문항. 문항마다 맞는 형식: 2지선다(퍼즐 축 상황) · 5점 척도(정도) · 하나 고르기 · 여러 개 고르기 · 역량 0~4 표.
-// 퍼즐 4축은 축마다 3표(다수결)로 정하고, 모든 답이 매칭용 27차원 필수값·온도·시간·희망 역할·장단점 카드·협업 지뢰를 채웁니다.
+// 소유: 규혁 (src/store/) — ‘내 조각’ 설문(섹션 A~F, 29문항)과 16유형 (퍼즐 궁합 매트릭스 시안 구조)
+// 공모전마다 달라지는 질문(참여 온도·주당 시간·이번 대회 목표)은 빼고, 그 사람의 작업 방식·성격·습관만 묻습니다.
+// 한 화면 한 문항. 문항마다 맞는 형식: 2지선다(퍼즐 축 상황) · 5점 척도(정도) · 여러 개 고르기 · 역량 0~4 표.
+// 퍼즐 4축은 축마다 3표(다수결). 답은 27차원 전부(성격·갈등 포함)·희망 역할·장단점 카드·협업 지뢰를 채웁니다.
+// 목표 4차원은 대회마다 달라서 묻지 않고, 프로필의 참여 온도 기준 참고값으로 채웁니다.
 // ‘딱 맞물리는 짝’ = 네 변이 전부 반대, ‘포개지는 쌍둥이’ = 같은 유형. 심리검사 아님.
 // 캐릭터 이름은 시안 — 뚝딱·척척·와다닥·꼼꼼은 시안 그대로, 나머지는 같은 결로 지은 초안입니다.
 
@@ -33,11 +35,12 @@ type Likert = 1 | 2 | 3 | 4 | 5;
 
 /** 섹션 — 문항 번호는 A1, A2 … E3 */
 export const SURVEY_SECTIONS = [
-  { id: 'A', title: '나와 이번 대회' },
-  { id: 'B', title: '일하는 방식' },
-  { id: 'C', title: 'AI 쓰는 방식' },
-  { id: 'D', title: '역할과 역량' },
-  { id: 'E', title: '함께하는 방식' },
+  { id: 'A', title: '일하는 방식' },
+  { id: 'B', title: 'AI 쓰는 방식' },
+  { id: 'C', title: '역할과 역량' },
+  { id: 'D', title: '성격' },
+  { id: 'E', title: '의견이 부딪힐 때' },
+  { id: 'F', title: '함께하는 방식' },
 ] as const;
 export type SectionId = (typeof SURVEY_SECTIONS)[number]['id'];
 
@@ -51,6 +54,8 @@ export interface BinaryOption {
   answer: string;
   vote?: PieceLetter;
   set?: Partial<Record<FeatureKey, number>>;
+  /** 여건(하드 제약) */
+  hard?: { offlineAvailable?: boolean; nightWorkAvailable?: boolean };
 }
 
 /** 2지선다 — 퍼즐 축 상황 질문 */
@@ -118,113 +123,114 @@ const DEAL_OPTS: { value: DealBreakerId; label: string }[] = [
   { value: 'scope_creep', label: '일정 넘는 기능 욕심' },
 ];
 
-/** 설문 22문항 (A6 · B5 · C3 · D5 · E3). 퍼즐 4축은 축마다 3표(다수결) */
+/** 설문 29문항 (A6 · B3 · C6 · D5 · E5 · F4). 퍼즐 4축은 축마다 3표(다수결) */
 export const PIECE_SURVEY: SurveyQ[] = [
-  // A. 나와 이번 대회
+  // A. 일하는 방식 — 시작(I/P)·결정(G/E) 축
   {
-    id: 'A1', section: 'A', type: 'single', field: 'temperatureMode', question: '이번 대회, 몇 도로 할까요?',
-    options: [
-      { value: 'fun', label: '36.5° 가볍게', detail: '재미와 경험' },
-      { value: 'balanced', label: '65° 균형 있게', detail: '즐겁게 완주' },
-      { value: 'serious', label: '90° 진지하게', detail: '수상과 포트폴리오' },
-    ],
-  },
-  {
-    id: 'A2', section: 'A', type: 'single', field: 'weeklyHours', question: '일주일에 쓸 수 있는 시간은?',
-    options: [
-      { value: '3-5h', label: '3~5시간' },
-      { value: '6-10h', label: '6~10시간' },
-      { value: '10h+', label: '10시간 이상' },
-    ],
-  },
-  { id: 'A3', section: 'A', type: 'multi', field: 'preferredRoles', min: 1, max: 2, question: '팀에서 맡고 싶은 역할은? (최대 2개)', options: ROLE_OPTS },
-  { id: 'A4', section: 'A', type: 'scale', key: 'winning_orientation', question: '이번엔 새로운 기술을 배우는 것보다 수상이 더 중요해.', low: '전혀 아니야', high: '완전 그래' },
-  { id: 'A5', section: 'A', type: 'scale', key: 'learning_priority', question: '결과물보다 탐색하고 배우는 경험이 더 중요해.', low: '전혀 아니야', high: '완전 그래' },
-  { id: 'A6', section: 'A', type: 'scale', key: 'delivery_priority', question: '마감이 촉박하면 기능을 줄여서라도 작동하는 걸 내야 해.', low: '전혀 아니야', high: '완전 그래' },
-
-  // B. 일하는 방식 — 시작(I/P)·결정(G/E) 축
-  {
-    id: 'B1', section: 'B', type: 'binary', question: '새 프로젝트 첫날. 너는 뭐부터 해?',
+    id: 'A1', section: 'A', type: 'binary', question: '새 프로젝트 첫날. 너는 뭐부터 해?',
     options: [
       { answer: '아이디어부터 막 던져', vote: 'I', set: { prototyping_preference: 5 } },
       { answer: '계획표부터 짜', vote: 'P', set: { prototyping_preference: 2 } },
     ],
   },
   {
-    id: 'B2', section: 'B', type: 'binary', question: '기획서가 반쯤 비었는데 시간이 없어.',
+    id: 'A2', section: 'A', type: 'binary', question: '할 일은 많은데 정리가 안 됐어.',
     options: [
-      { answer: '일단 만들면서 채워', vote: 'I', set: { risk_appetite: 4 } },
-      { answer: '빈칸부터 다 채우고 시작해', vote: 'P', set: { risk_appetite: 2 } },
+      { answer: '일단 손에 잡히는 것부터 해', vote: 'I', set: { prototyping_preference: 4 } },
+      { answer: '목록부터 쭉 정리하고 시작해', vote: 'P', set: { prototyping_preference: 2 } },
     ],
   },
-  { id: 'B3', section: 'B', type: 'scale', key: 'decision_structure_preference', question: '시작 전에 팀의 결정 규칙을 정해 두는 게 좋아.', low: '하다 보면 생겨', high: '꼭 먼저 정해', vote: { high: 'P', low: 'I' } },
+  { id: 'A3', section: 'A', type: 'scale', key: 'decision_structure_preference', question: '같이 일할 땐 결정하는 규칙과 담당을 먼저 정해 두는 게 좋아.', low: '하다 보면 생겨', high: '꼭 먼저 정해', vote: { high: 'P', low: 'I' } },
   {
-    id: 'B4', section: 'B', type: 'binary', question: '회의에서 A안, B안이 팽팽해. 너는 보통 어떻게 정해?',
+    id: 'A4', section: 'A', type: 'binary', question: '두 가지 방법이 팽팽해. 너는 보통 어떻게 정해?',
     options: [
       { answer: '자료부터 찾아보고 정해', vote: 'E', set: { quality_priority: 4 } },
-      { answer: '감 오는 쪽으로 바로 가', vote: 'G', set: { quality_priority: 2, risk_appetite: 4 } },
+      { answer: '감 오는 쪽으로 바로 가', vote: 'G', set: { quality_priority: 2 } },
     ],
   },
   {
-    id: 'B5', section: 'B', type: 'binary', question: '마감 30분 전, 버그 하나가 남았어.',
+    id: 'A5', section: 'A', type: 'binary', question: '시간이 부족할 때 너는?',
     options: [
-      { answer: '기능을 빼더라도 완성도부터', vote: 'E', set: { quality_priority: 5 } },
-      { answer: '일단 다 넣고 제출해', vote: 'G', set: { quality_priority: 2, risk_appetite: 5 } },
+      { answer: '개수를 줄이고 하나라도 제대로', vote: 'E', set: { quality_priority: 5 } },
+      { answer: '조금 거칠어도 다 해내기', vote: 'G', set: { quality_priority: 2 } },
     ],
   },
+  { id: 'A6', section: 'A', type: 'scale', key: 'risk_appetite', question: '확실한 방법보다 해 본 적 없는 방법을 시도하는 게 좋아.', low: '전혀 아니야', high: '완전 그래' },
 
-  // C. AI 쓰는 방식
-  { id: 'C1', section: 'C', type: 'scale', key: 'ai_use_permissiveness', question: '핵심 기능의 코드도 생성형 AI로 써도 괜찮아.', low: '전혀 아니야', high: '완전 그래' },
+  // B. AI 쓰는 방식
+  { id: 'B1', section: 'B', type: 'scale', key: 'ai_use_permissiveness', question: '중요한 작업도 생성형 AI로 해도 괜찮아.', low: '전혀 아니야', high: '완전 그래' },
   {
-    id: 'C2', section: 'C', type: 'binary', question: 'AI가 만든 코드나 글, 어떻게 써?',
+    id: 'B2', section: 'B', type: 'binary', question: 'AI가 만든 코드나 글, 어떻게 써?',
     options: [
       { answer: '한 줄씩 확인하고 써', vote: 'E', set: { ai_verification_strictness: 5 } },
       { answer: '잘 돌아가면 바로 써', vote: 'G', set: { ai_verification_strictness: 2 } },
     ],
   },
   {
-    id: 'C3', section: 'C', type: 'binary', question: 'AI를 어디에 썼는지는?',
+    id: 'B3', section: 'B', type: 'binary', question: 'AI를 어디에 썼는지는?',
     options: [
       { answer: '각자 알아서 쓰면 돼', vote: 'A', set: { ai_disclosure_preference: 2 } },
-      { answer: '팀에 다 공유해야 해', vote: 'W', set: { ai_disclosure_preference: 5 } },
+      { answer: '같이 하는 사람에게 다 공유해', vote: 'W', set: { ai_disclosure_preference: 5 } },
     ],
   },
 
-  // D. 역할과 역량 — 맡는 일(M/S) 축
+  // C. 역할과 역량 — 맡는 일(M/S) 축
   {
-    id: 'D1', section: 'D', type: 'binary', question: '팀에서 제일 맡고 싶은 일은?',
+    id: 'C1', section: 'C', type: 'binary', question: '팀플에서 더 즐거운 일은?',
     options: [
       { answer: '내 손으로 직접 만들기', vote: 'M' },
       { answer: '만든 걸 말로 설득하기', vote: 'S' },
     ],
   },
-  { id: 'D2', section: 'D', type: 'skills', question: '지금 할 수 있는 정도는?' },
-  { id: 'D3', section: 'D', type: 'multi', field: 'strengths', min: 2, max: 2, question: '내가 채워 줄 수 있는 것 2개 (凸)', options: STRENGTH_OPTS },
-  { id: 'D4', section: 'D', type: 'multi', field: 'weaknesses', min: 2, max: 2, question: '채워 줄 사람이 필요한 것 2개 (凹)', options: WEAKNESS_OPTS, excludeFrom: 'D3' },
+  { id: 'C2', section: 'C', type: 'multi', field: 'preferredRoles', min: 1, max: 2, question: '팀에서 주로 맡고 싶은 역할은? (최대 2개)', options: ROLE_OPTS },
+  { id: 'C3', section: 'C', type: 'skills', question: '지금 할 수 있는 정도는?' },
+  { id: 'C4', section: 'C', type: 'multi', field: 'strengths', min: 2, max: 2, question: '내가 채워 줄 수 있는 것 2개', options: STRENGTH_OPTS },
+  { id: 'C5', section: 'C', type: 'multi', field: 'weaknesses', min: 2, max: 2, question: '채워 줄 사람이 필요한 것 2개', options: WEAKNESS_OPTS, excludeFrom: 'C4' },
   {
-    id: 'D5', section: 'D', type: 'binary', question: '발표 날, 너는 어디에 있어?',
+    id: 'C6', section: 'C', type: 'binary', question: '결과를 보여 주는 자리, 너는 어디에 있어?',
     options: [
       { answer: '뒤에서 시연을 돌리고 있어', vote: 'M' },
       { answer: '앞에서 마이크를 잡고 있어', vote: 'S' },
     ],
   },
 
-  // E. 함께하는 방식 — 스타일(A/W) 축
+  // D. 성격 (임시 문항 · 검증 전)
+  { id: 'D1', section: 'D', type: 'scale', key: 'openness', question: '처음 보는 방식이나 아이디어를 시도하는 게 즐거워.', low: '전혀 아니야', high: '완전 그래' },
+  { id: 'D2', section: 'D', type: 'scale', key: 'conscientiousness', question: '맡은 일은 계획을 세워서 마감 전에 끝내.', low: '전혀 아니야', high: '완전 그래' },
+  { id: 'D3', section: 'D', type: 'scale', key: 'extraversion', question: '여러 사람과 바로 이야기를 나누는 게 편해.', low: '전혀 아니야', high: '완전 그래', vote: { high: 'W', low: 'A' } },
+  { id: 'D4', section: 'D', type: 'scale', key: 'agreeableness', question: '같이 하는 사람의 사정을 먼저 헤아리는 편이야.', low: '전혀 아니야', high: '완전 그래' },
+  { id: 'D5', section: 'D', type: 'scale', key: 'emotional_stability', question: '일이 꼬여도 쉽게 흔들리지 않아.', low: '전혀 아니야', high: '완전 그래' },
+
+  // E. 의견이 부딪힐 때
+  { id: 'E1', section: 'E', type: 'scale', key: 'integrating', question: '정하기 전에 서로의 근거를 충분히 들어 보고 싶어.', low: '전혀 아니야', high: '완전 그래' },
+  { id: 'E2', section: 'E', type: 'scale', key: 'obliging', question: '분위기를 위해 내 의견을 양보하는 편이야.', low: '전혀 아니야', high: '완전 그래' },
+  { id: 'E3', section: 'E', type: 'scale', key: 'dominating', question: '동의하지 않을 땐 이유를 바로 말해.', low: '전혀 아니야', high: '완전 그래' },
+  { id: 'E4', section: 'E', type: 'scale', key: 'avoiding', question: '부딪히면 잠시 시간을 두고 다시 이야기하는 게 나아.', low: '전혀 아니야', high: '완전 그래' },
+  { id: 'E5', section: 'E', type: 'scale', key: 'compromising', question: '서로 조금씩 양보해서 중간 지점을 찾아.', low: '전혀 아니야', high: '완전 그래' },
+
+  // F. 함께하는 방식 — 스타일(A/W) 축
   {
-    id: 'E1', section: 'E', type: 'binary', question: '마감 사흘 전. 너는 어떻게 일해?',
+    id: 'F1', section: 'F', type: 'binary', question: '마감이 다가오면 너는?',
     options: [
       { answer: '혼자 몰입해서 끝내', vote: 'A' },
       { answer: '같이 붙어서 해', vote: 'W' },
     ],
   },
+  { id: 'F2', section: 'F', type: 'multi', field: 'dealBreakers', min: 1, max: 2, question: '같이 일할 때 이것만은 힘들어 (1~2개)', options: DEAL_OPTS },
   {
-    id: 'E2', section: 'E', type: 'binary', question: '대회가 끝나면 이 팀은?',
+    id: 'F3', section: 'F', type: 'binary', question: '직접 만나서 같이 작업할 수 있어?',
     options: [
-      { answer: '결과 나오면 각자 갈 길', vote: 'A', set: { continuation_intent: 2 } },
-      { answer: '계속 같이 이어가고 싶어', vote: 'W', set: { continuation_intent: 5 } },
+      { answer: '응, 오프라인도 좋아', hard: { offlineAvailable: true } },
+      { answer: '온라인이 편해', hard: { offlineAvailable: false } },
     ],
   },
-  { id: 'E3', section: 'E', type: 'multi', field: 'dealBreakers', min: 1, max: 2, question: '이것만은 힘들어 (1~2개)', options: DEAL_OPTS },
+  {
+    id: 'F4', section: 'F', type: 'binary', question: '필요하면 밤새 작업할 수 있어?',
+    options: [
+      { answer: '할 수 있어', hard: { nightWorkAvailable: true } },
+      { answer: '밤샘은 어려워', hard: { nightWorkAvailable: false } },
+    ],
+  },
 ];
 
 /** 답: 문항 id → 2지선다·하나 고르기는 번호, 척도는 1~5, 여러 개는 값 배열, 역량은 역할별 0~4 */
@@ -317,54 +323,65 @@ export function quadrantOf(code: PieceCode) {
 }
 
 export interface SurveyResult {
-  /** 필수 17차원(목표 4 · AI 규범 3 · 작업 방식 4 · 역량 6). 성격·갈등 10차원은 별도(선택) */
-  features: Pick<
-    Features27,
-    | 'winning_orientation' | 'learning_priority' | 'delivery_priority' | 'continuation_intent'
-    | 'ai_use_permissiveness' | 'ai_verification_strictness' | 'ai_disclosure_preference'
-    | 'prototyping_preference' | 'risk_appetite' | 'quality_priority' | 'decision_structure_preference'
-    | RoleId
-  >;
+  /** 27차원 전부 (성격·갈등 포함). 목표 4차원은 참여 온도 참고값 */
+  features: Features27;
   temperatureMode: TemperatureMode;
   weeklyHours: WeeklyHours;
+  offlineAvailable: boolean;
+  nightWorkAvailable: boolean;
   preferredRoles: RoleId[];
   strengths: [SkillCardId, SkillCardId];
   weaknesses: [SkillCardId, SkillCardId];
   dealBreakers: DealBreakerId[];
 }
 
-const REQUIRED_LIKERT_KEYS: FeatureKey[] = [
-  'winning_orientation', 'learning_priority', 'delivery_priority', 'continuation_intent',
+const LIKERT_KEYS: FeatureKey[] = [
   'ai_use_permissiveness', 'ai_verification_strictness', 'ai_disclosure_preference',
   'prototyping_preference', 'risk_appetite', 'quality_priority', 'decision_structure_preference',
+  'openness', 'conscientiousness', 'extraversion', 'agreeableness', 'emotional_stability',
+  'integrating', 'obliging', 'dominating', 'avoiding', 'compromising',
 ];
 
-/** 설문 답 → 매칭용 필수 17차원 + 온도·시간·희망 역할 + 장단점 카드 + 협업 지뢰 */
+/** 대회마다 달라지는 목표 4차원 — 참여 온도별 참고값 (설문에서 묻지 않음) */
+export function goalFeaturesFor(mode: TemperatureMode) {
+  const ref = { fun: { w: 2, l: 4.5, d: 3, c: 3 }, balanced: { w: 3, l: 3.5, d: 4, c: 3 }, serious: { w: 4.5, l: 2.5, d: 4.5, c: 3.5 } }[mode];
+  return { winning_orientation: ref.w, learning_priority: ref.l, delivery_priority: ref.d, continuation_intent: ref.c };
+}
+
+/** 설문 답 → 27차원 + 희망 역할 + 장단점 카드 + 협업 지뢰 (온도·시간은 기본값, 프로필에서 대회마다 바꿈) */
 export function featuresFromSurvey(a: PieceAnswers): SurveyResult {
   const sums: Partial<Record<FeatureKey, number[]>> = {};
   const push = (k: FeatureKey, v: number) => (sums[k] ??= []).push(v);
   const out: Partial<SurveyResult> = {};
+  const hard = { offlineAvailable: true, nightWorkAvailable: false };
   for (const q of PIECE_SURVEY) {
     const ans = a[q.id];
     if (ans === undefined) continue;
-    if (q.type === 'binary') for (const [k, v] of Object.entries(q.options[ans as number].set ?? {})) push(k as FeatureKey, v as number);
+    if (q.type === 'binary') {
+      const o = q.options[ans as number];
+      for (const [k, v] of Object.entries(o.set ?? {})) push(k as FeatureKey, v as number);
+      Object.assign(hard, o.hard ?? {});
+    }
     if (q.type === 'scale') push(q.key, q.reverse ? 6 - (ans as Likert) : (ans as Likert));
     if (q.type === 'single') (out as Record<string, unknown>)[q.field] = q.options[ans as number].value;
     if (q.type === 'multi') (out as Record<string, unknown>)[q.field] = ans;
     if (q.type === 'skills') out.features = { ...(out.features ?? {}), ...(ans as Record<RoleId, number>) } as SurveyResult['features'];
   }
   const likert = Object.fromEntries(
-    REQUIRED_LIKERT_KEYS.map((k) => {
+    LIKERT_KEYS.map((k) => {
       const vals = sums[k];
       return [k, vals?.length ? Math.round((vals.reduce((x, y) => x + y, 0) / vals.length) * 10) / 10 : 3];
     }),
   );
   const st = (out.strengths ?? []) as SkillCardId[];
   const wk = (out.weaknesses ?? []) as SkillCardId[];
+  const temperatureMode = (out.temperatureMode ?? 'balanced') as TemperatureMode;
   return {
-    features: { ...(out.features ?? {}), ...(likert as Record<string, number>) } as SurveyResult['features'],
-    temperatureMode: (out.temperatureMode ?? 'balanced') as TemperatureMode,
+    features: { ...goalFeaturesFor(temperatureMode), ...(out.features ?? {}), ...(likert as Record<string, number>) } as SurveyResult['features'],
+    temperatureMode,
     weeklyHours: (out.weeklyHours ?? '6-10h') as WeeklyHours,
+    offlineAvailable: hard.offlineAvailable,
+    nightWorkAvailable: hard.nightWorkAvailable,
     preferredRoles: (out.preferredRoles ?? []) as RoleId[],
     strengths: [st[0], st[1]],
     weaknesses: [wk[0], wk[1]],
@@ -410,8 +427,8 @@ export const PIECE_TYPES: Record<PieceCode, PieceType> = {
 import type { UserProfile } from '@/types/ondo';
 
 /**
- * 4문항에 답하지 않은 사람(시드 팀원 등)의 조각을 27차원 응답에서 규칙으로 추정합니다.
- * 내 조각은 4문항 답(myPiece)을 그대로 씁니다.
+ * 설문에 답하지 않은 사람(시드 팀원 등)의 조각을 27차원 응답에서 규칙으로 추정합니다.
+ * 내 조각은 설문 답(myPiece)을 그대로 씁니다.
  */
 export function derivePieceCode(u: UserProfile): PieceCode {
   const x = u.features27;

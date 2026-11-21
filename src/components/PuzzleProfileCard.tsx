@@ -17,16 +17,8 @@ function Tag({ kind, id, mode, align }: { kind: 'strength' | 'weakness'; id: Ski
   const t = PUZZLE_THEME[mode];
   return (
     <div className={cx('flex flex-col gap-1', align === 'right' && 'items-end text-right', align === 'center' && 'items-center text-center', align === 'left' && 'items-start')}>
-      <span
-        className="grid size-5 place-items-center rounded-[5px] label-small"
-        style={
-          kind === 'strength'
-            ? { background: t.stroke, color: mode === 'serious' ? '#fff' : t.surface }
-            : { border: `1.5px dashed ${t.stroke}`, color: t.stroke }
-        }
-        aria-label={kind === 'strength' ? '장점' : '약점'}
-      >
-        {kind === 'strength' ? '凸' : '凹'}
+      <span className="label-small" style={{ color: t.stroke }}>
+        {kind === 'strength' ? '장점' : '약점'}
       </span>
       <span className="body-small text-on-surface sm:body-medium">{kind === 'strength' ? meta.strength : meta.weakness}</span>
     </div>
@@ -135,7 +127,7 @@ export function PuzzleProfileCard({
             </span>
           ))}
           <InfoTip align="end" className="ml-auto">
-            凸 돌기는 내가 채워 줄 수 있는 것, 凹 홈은 채워 줄 사람이 필요한 것이에요. 가운데 코드는 응답에서 자동으로 나온 협업 유형이에요(심리검사 아님).
+            볼록한 변은 내가 채워 줄 수 있는 것, 오목한 변은 채워 줄 사람이 필요한 것이에요. 가운데 코드는 응답에서 자동으로 나온 협업 유형이에요(심리검사 아님).
           </InfoTip>
         </div>
       )}

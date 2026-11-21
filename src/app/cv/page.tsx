@@ -164,8 +164,8 @@ export default function CvPage() {
             <div className="enter flex flex-wrap items-center gap-4 rounded-m3-xl bg-primary-container p-5 text-on-primary-container">
               <Icon name="extension" filled />
               <div className="min-w-0 flex-1">
-                <p className="title-medium">퍼즐 완성! 이제 CV만 남았어요</p>
-                <p className="body-medium">수상 경력이 없어도 괜찮아요. 수업 팀플이나 관심 분야부터 채워볼까요?</p>
+                <p className="title-medium">퍼즐 완성! 닉네임과 전공부터 채워 볼까요?</p>
+                <p className="body-medium">수상 경력이 없어도 괜찮아요. 수업 팀플이나 관심 분야부터 채우면 돼요.</p>
               </div>
               <Button variant="text" onClick={() => router.push('/profile')}>
                 나중에
@@ -226,8 +226,9 @@ export default function CvPage() {
           </div>
 
           <section id="basic" className="scroll-mt-24">
-            <SectionTitle n={1} title="기본 정보" tip="실명은 팀 확정 후에만 공개돼요." />
+            <SectionTitle n={1} title="기본 정보" tip="닉네임은 팀이 확정되기 전에 보이는 이름이에요. 실명은 팀 확정 후에만 공개돼요." />
             <div className="grid gap-4 sm:grid-cols-2">
+              <TextField label="닉네임" value={user.nickname} onChange={(e) => setCurrentUser({ ...user, nickname: e.target.value.slice(0, 12) })} />
               <TextField label="실명" value={cv.realName} onChange={(e) => updateCv({ realName: e.target.value })} />
               <TextField label="학교" value={cv.university} onChange={(e) => updateCv({ university: e.target.value })} />
               <TextField label="전공" value={cv.major} onChange={(e) => updateCv({ major: e.target.value })} />
