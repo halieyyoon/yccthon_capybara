@@ -1,3 +1,4 @@
+import type { RefId } from '@/data/references';
 // SPEC.md 4장 공통 계약을 그대로 옮긴 파일입니다. (소유: 혜원)
 // 규혁 브랜치(gyuhyeok/ux-flow)에서 화면 개발을 위해 SPEC 원문 그대로 먼저 생성했습니다.
 
@@ -142,6 +143,46 @@ export interface PuzzleMatchPair {
   coveredById: string;
   coveredByNickname: string;
   strengthId: SkillCardId;
+  /** exact = 같은 카드로 덮음, mapped = WEAKNESS_COVERED_BY 매핑표로 덮음 */
+  matchType: 'exact' | 'mapped';
+}
+
+// ───────── 매칭 근거 (docs/proposal/09) ─────────
+export type MetricKey = 'goalAlignment' | 'roleCoverage' | 'aiPolicyAlignment' | 'collaborationCompatibility';
+
+/** 지표 안의 문항 1개에 대한 이 팀의 실제 응답 */
+export interface MetricItemEvidence {
+  key: string;                    // FeatureKey 또는 RoleId
+  label: string;                  // 화면용 짧은 이름
+  values: { nickname: string; value: number | null }[];
+  /** separation: 최고−최저 차이 / variety: 팀 최고 숙련도 */
+  stat: number;
+  /** separation: 차이 ≤ 1이면 일치 / variety: 최고 숙련도 ≥ 3이면 채움 */
+  ok: boolean;
+}
+
+export interface MetricExplanation {
+  metric: MetricKey;
+  label: string;
+  /** Harrison & Klein(2007): 비슷해야 좋은 차이(separation) vs 다양해야 좋은 차이(variety) */
+  diversityType: 'separation' | 'variety';
+  /** 화면 대표값: okCount / total (예: 3/4 문항 일치) */
+  okCount: number;
+  total: number;
+  /** 순위 계산용 연속값 0~1 (화면에는 소수로 노출하지 않음) */
+  value: number;
+  weight: number;
+  rule: string;                   // "4명의 응답 차이가 1점 이하면 일치로 세요"
+  why: string;                    // 이 지표를 보는 이유 한 문장
+  refs: RefId[];
+  items: MetricItemEvidence[];
+}
+
+/** 팀 안에서 다른 팀원과 응답이 가장 멀리 떨어진 사람 (Barrick et al., 1998 — 평균과 함께 최솟값) */
+export interface MemberOutlier {
+  nickname: string;
+  /** 목표·AI·작업 11문항에서 다른 팀원과의 평균 응답 차이 (1~5 척도의 점수 차) */
+  avgGap: number;
 }
 
 export interface TeamCandidate {
@@ -150,7 +191,7 @@ export interface TeamCandidate {
   rank: 1 | 2 | 3;
   members: UserProfile[];         // [현재 유저, 추천 팀원 3명]
   matchScore: number;             // 0 ~ 1 (UI 표기 시 "임시 가중치 기준 점수"로 명시)
-  minMemberFit: number;           // 0 ~ 1 (팀원 중 가장 불리한 적합도)
+  minMemberFit: number;           // 0 ~ 1 (내부값. 화면에는 outlier로 표시)
   biggestGapNote: string;         // 예: "AI 결과물 검증 엄격도에 차이가 있어 초반 합의 권장"
   evidenceTags: string[];         // 응답 근거 태그 (군집 라벨 대신 근거 중심 노출)
   scoreBreakdown: {
@@ -162,6 +203,11 @@ export interface TeamCandidate {
   };
   missingInfoNotice?: string;     // 성격/갈등 결측 시 안내 문구
   puzzlePairs: PuzzleMatchPair[];
+  /** 지표별 계산 규칙·근거 논문·이 팀의 실제 응답 */
+  explanations: MetricExplanation[];
+  outlier: MemberOutlier;
+  /** 점수에 넣지 않고 '첫 회의에서 확인할 점'으로만 보여 주는 항목 (지뢰 충돌, AI 허용도 큰 차이 등) */
+  cautions: string[];
   status: 'CLUSTERED' | 'AVATAR_DONE' | 'PILOT_ACTIVE' | 'WAITING_CONSENT' | 'UNLOCKED' | 'EXPIRED';
 }
 
@@ -174,9 +220,11 @@ export interface AvatarTurn {
 }
 
 export interface AvatarMeetingResult {
+  source?: 'gemini' | 'fallback';
   teamId: string;
   contestTitle: string;
   agenda: string;                 // 부여된 공통 안건 (예: "20분 안에 MVP 핵심 기능 1개 합의하기")
+  discussionSummary?: string;     // 아바타들의 제안과 반응. 이전 저장 결과에는 없을 수 있음
   turns: AvatarTurn[];            // 6턴 가상 회의
   consensus: string;              // 합의안
   unresolvedIssues: string[];     // 미해결 쟁점 1~2개

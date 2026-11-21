@@ -25,11 +25,6 @@ const GLASS_TINT: Record<TemperatureMode, string> = {
   balanced: '#b3ebe8',
   serious: '#c8bbfa',
 };
-const GLASS_EDGE: Record<TemperatureMode, string> = {
-  fun: '#e2a7bd',
-  balanced: '#82c9d9',
-  serious: '#9e91e3',
-};
 const REVEAL_DURATION = 560;
 const REVEAL_INTERVAL = 180;
 const START_ANGLE = -Math.PI * 0.52;
@@ -102,7 +97,7 @@ function createGlass(mode: TemperatureMode, edge = false) {
     transmission: edge ? 0.91 : 0.98,
     thickness: edge ? 0.64 : 0.29,
     ior: 1.49,
-    attenuationColor: edge ? GLASS_EDGE[mode] : GLASS_TINT[mode],
+    attenuationColor: edge ? getComputedStyle(document.documentElement).getPropertyValue(`--glass-edge-${mode}`).trim() : GLASS_TINT[mode],
     attenuationDistance: edge ? 1.18 : 0.97,
     dispersion: 0.15,
     clearcoat: 0.48,

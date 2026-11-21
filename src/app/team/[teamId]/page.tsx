@@ -11,6 +11,7 @@ import { Button, cx, Dialog, Icon, InfoTip, LinearProgress, Monogram, Snackbar }
 import { AppShell, NeedsUser } from '@/components/AppShell';
 import { TeamPuzzleMerge } from '@/components/TeamPuzzleMerge';
 import { useHydrated, useOndoStore } from '@/store/useOndoStore';
+import { pieceOf } from '@/store/pieceTypes';
 
 function CvView({ m }: { m: UserProfile }) {
   const cv = m.cv;
@@ -56,11 +57,12 @@ export default function TeamPage() {
   const { teamId } = useParams<{ teamId: string }>();
   const hydrated = useHydrated();
   const user = useOndoStore((s) => s.currentUser);
-  const team = useOndoStore((s) => s.recommendedTeams.find((t) => t.id === teamId));
+  const team = useOndoStore((s) => s.savedTeams[teamId] ?? s.recommendedTeams.find((t) => t.id === teamId));
   const unlocked = useOndoStore((s) => s.unlockedTeamIds.includes(teamId));
   const meeting = useOndoStore((s) => s.avatarMeetings[teamId]);
   const accepted = useOndoStore((s) => s.consentCount[teamId] ?? 1);
   const unlockTeam = useOndoStore((s) => s.unlockTeam);
+  const myPiece = useOndoStore((s) => s.myPiece);
 
   const [revealed, setRevealed] = useState(false);
   const [cvOf, setCvOf] = useState<UserProfile | null>(null);
@@ -159,7 +161,7 @@ export default function TeamPage() {
         </div>
 
         <div className="mt-8 flex justify-center">
-          <TeamPuzzleMerge team={{ ...team, members }} unlocked />
+          <TeamPuzzleMerge team={{ ...team, members }} unlocked pieceCodes={members.map((m) => pieceOf(m, user.id, myPiece))} />
         </div>
 
         <ul className="mt-10 grid gap-3 sm:grid-cols-2">
@@ -180,7 +182,7 @@ export default function TeamPage() {
                     {revealed ? `${m.nickname} · ` : ''}
                     {m.cv.major} {m.cv.grade} · <span className="tabular">{TEMPERATURE_BY_ID[m.temperatureMode].temperature}°</span>
                   </p>
-                  <p className="mt-1 body-small text-on-surface">凸 {m.strengths.map((s) => SKILL_CARD_BY_ID[s].strength).join(', ')}</p>
+                  <p className="mt-1 body-small text-on-surface">잘하는 것 · {m.strengths.map((s) => SKILL_CARD_BY_ID[s].strength).join(', ')}</p>
                 </div>
                 <Button variant="text" onClick={() => setCvOf(m)} disabled={!revealed}>
                   CV

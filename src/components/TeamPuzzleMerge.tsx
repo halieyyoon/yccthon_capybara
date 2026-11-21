@@ -2,57 +2,54 @@
 
 // [임시 구현 · 규혁 브랜치] 소유: 연서 (src/components/)
 // 계약: yeonseo-slides-ui.md 3장 ② — Props { team: TeamCandidate; unlocked?: boolean }
-// 4인 퍼즐 2×2 맞물림 + puzzlePairs 보완 화살표 + evidenceTags 칩 + biggestGapNote 앰버 박스 + minMemberFit
+// + 선택 Props: pieceCodes(멤버별 16유형 조각 — 없으면 응답에서 추정)
+// 4인 퍼즐 2×2 맞물림 + puzzlePairs 보완 화살표 + evidenceTags 칩 + biggestGapNote 앰버 박스
+// [v1.1 혜원] 소수 점수 대신 '맞는 항목 수' + 응답이 가장 다른 팀원 + 첫 회의에서 확인할 점 (docs/proposal/09)
 // unlocked=true(팀 확정 화면)에서는 분석 정보 없이 퍼즐이 합쳐지는 연출만 보여 줍니다.
 
 import { useEffect, useState } from 'react';
 import type { TeamCandidate } from '@/types/ondo';
 import { SKILL_CARD_BY_ID } from '@/data/constants';
 import { cx, Icon, InfoTip } from '@/components/m3';
-import { type EdgeType, PIECE_PAD_RATIO, PuzzlePiece } from '@/components/PuzzlePiece';
+import { PuzzlePiece } from '@/components/PuzzlePiece';
+import { PIECE_TYPES, type PieceCode, derivePieceCode, edgesFromCode } from '@/store/pieceTypes';
 
-// 2×2에서 맞닿는 변이 돌기/홈으로 맞물리도록 고정 배치 [위, 오른쪽, 아래, 왼쪽]
-const LAYOUT: [EdgeType, EdgeType, EdgeType, EdgeType][] = [
-  [0, 1, -1, 0],
-  [0, 0, 1, -1],
-  [1, -1, 0, 0],
-  [-1, 0, 0, 1],
-];
-
-function Pieces({ team, merged, size }: { team: TeamCandidate; merged: boolean; size: number }) {
-  // 조각 SVG = 여백 + 본체 + 여백. 합체 시 본체끼리 정확히 맞닿도록 절대 위치로 배치
-  const pad = size * PIECE_PAD_RATIO;
-  const body = size - pad * 2;
-  const spread = merged ? 0 : 14;
-  const box = size + body + spread;
+/**
+ * 2×2 배치. 다른 화면(내 조각 결과·팀 드롭)과 같은 모양이 되도록 각자의 16유형 조각을 온전한 모양 그대로 그립니다.
+ * (예전처럼 바깥 변을 평평하게 깎아 한 장의 사각형으로 만들지 않음)
+ */
+/** 좁은 자리: 이름 + 별명(title)은 항상, 누르면 한 줄 설명(line) */
+function PieceLabel({ code, me }: { code: PieceCode; me: boolean }) {
+  const [open, setOpen] = useState(false);
+  const t = PIECE_TYPES[code];
   return (
-    <div className="relative mx-auto shrink-0" style={{ width: box, height: box }}>
-      {team.members.slice(0, 4).map((m, i) => {
-        const col = i % 2;
-        const row = Math.floor(i / 2);
-        return (
-          <div
-            key={m.id}
-            className="absolute left-0 top-0 transition-transform duration-700 ease-m3"
-            style={{ transform: `translate(${col * (body + spread)}px, ${row * (body + spread)}px)` }}
-          >
-            <PuzzlePiece
-              mode={m.temperatureMode}
-              edges={LAYOUT[i]}
-              label={m.nickname.length > 6 ? `${m.nickname.slice(0, 6)}…` : m.nickname}
-              sublabel={i === 0 ? '나' : m.collabType}
-              labelSize={12}
-              size={size}
-              highlight={i === 0}
-            />
-          </div>
-        );
-      })}
+    <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="max-w-[10rem] rounded-m3-sm px-1 text-center hover:bg-surface-container">
+      <span className="block title-small text-on-surface">
+        {t.name}
+        {me && <span className="ml-1 text-primary">나</span>}
+      </span>
+      <span className="block label-medium text-on-surface">{t.title}</span>
+      {open && <span className="block body-small text-on-surface-variant">{t.line}</span>}
+    </button>
+  );
+}
+
+function Pieces({ team, codes, merged, size }: { team: TeamCandidate; codes: PieceCode[]; merged: boolean; size: number }) {
+  return (
+    <div className="mx-auto grid w-max grid-cols-2 transition-[gap] duration-700 ease-m3" style={{ gap: merged ? 4 : 28 }}>
+      {team.members.slice(0, 4).map((m, i) => (
+        <div key={m.id} className="flex flex-col items-center">
+          <PuzzlePiece mode={m.temperatureMode} edges={edgesFromCode(codes[i])} size={size} highlight={i === 0} />
+          <PieceLabel code={codes[i]} me={i === 0} />
+          <p className="max-w-[9rem] truncate label-small text-on-surface-variant">{m.nickname}</p>
+        </div>
+      ))}
     </div>
   );
 }
 
-export function TeamPuzzleMerge({ team, unlocked }: { team: TeamCandidate; unlocked?: boolean }) {
+export function TeamPuzzleMerge({ team, unlocked, pieceCodes }: { team: TeamCandidate; unlocked?: boolean; pieceCodes?: PieceCode[] }) {
+  const codes = pieceCodes ?? team.members.map((m) => derivePieceCode(m));
   const [merged, setMerged] = useState(!unlocked);
   useEffect(() => {
     if (!unlocked) return;
@@ -61,7 +58,7 @@ export function TeamPuzzleMerge({ team, unlocked }: { team: TeamCandidate; unloc
     return () => clearTimeout(t);
   }, [unlocked, team.id]);
 
-  if (unlocked) return <Pieces team={team} merged={merged} size={190} />;
+  if (unlocked) return <Pieces team={team} codes={codes} merged={merged} size={150} />;
 
   return (
     <div className="@container space-y-5">
@@ -72,11 +69,11 @@ export function TeamPuzzleMerge({ team, unlocked }: { team: TeamCandidate; unloc
             {t}
           </span>
         ))}
-        <InfoTip align="start">응답 근거 태그예요. 군집 이름 대신, 실제로 비슷하거나 서로 채워 주는 응답을 보여 줘요.</InfoTip>
+        <InfoTip align="start">응답 근거 태그예요. 무리 이름 대신, 실제로 비슷하거나 서로 채워 주는 응답을 보여 줘요.</InfoTip>
       </div>
 
-      <div className="flex items-start gap-3 rounded-m3-md bg-tertiary-container p-4 text-on-tertiary-container">
-        <Icon name="forum" className="mt-0.5" />
+      <div className="flex items-start gap-3 rounded-m3-md bg-surface p-4 text-on-surface">
+        <Icon name="forum" className="mt-0.5 text-tertiary" />
         <div>
           <p className="label-large">가장 큰 차이</p>
           <p className="body-medium">{team.biggestGapNote}</p>
@@ -84,22 +81,23 @@ export function TeamPuzzleMerge({ team, unlocked }: { team: TeamCandidate; unloc
       </div>
 
       <div className="grid gap-6 @xl:grid-cols-[auto_1fr] @xl:items-center">
-        <Pieces team={team} merged size={150} />
+        <Pieces team={team} codes={codes} merged size={104} />
         <ul className="space-y-1">
           {team.puzzlePairs.slice(0, 5).map((p, i) => (
             <li key={i} className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-m3-sm bg-surface px-3 py-2">
               <div className="min-w-0">
                 <p className="label-small text-on-surface-variant">{p.weaknessOwnerNickname}</p>
                 <p className="body-medium text-on-surface">
-                  <span className="mr-1 text-on-surface-variant">凹</span>
                   {SKILL_CARD_BY_ID[p.weaknessId].weakness}
                 </p>
               </div>
               <Icon name="arrow_back" size={18} className="text-outline" />
               <div className="min-w-0">
-                <p className="label-small text-on-surface-variant">{p.coveredByNickname}</p>
+                <p className="label-small text-on-surface-variant">
+                  {p.coveredByNickname}
+                  {p.matchType === 'mapped' && <span className="ml-1 text-outline">· 비슷한 강점</span>}
+                </p>
                 <p className="body-medium text-primary">
-                  <span className="mr-1">凸</span>
                   {SKILL_CARD_BY_ID[p.strengthId].strength}
                 </p>
               </div>
@@ -112,17 +110,22 @@ export function TeamPuzzleMerge({ team, unlocked }: { team: TeamCandidate; unloc
       <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
         <div>
           <p className="flex items-center gap-1 label-medium text-on-surface-variant">
-            조합 지수 (임시 가중치 v1.0)
-            <InfoTip align="start">검증 전 임시 가중치로 낸 순위 참고용 값이에요. 정확도나 궁합 확률이 아니에요.</InfoTip>
+            응답이 맞는 항목
+            <InfoTip align="start">목표·AI·협업은 4명의 응답 차이가 1점 이하인 문항 수, 역량은 필요한 역할을 능숙한 팀원이 채운 수예요. 잘 맞을 가능성을 점수로 매긴 게 아니에요. 지표별 근거는 ‘왜 이 조합인가요?’에서 펼쳐 볼 수 있어요.</InfoTip>
           </p>
-          <p className="tabular display-small text-on-surface">{team.matchScore.toFixed(2)}</p>
+          <p className="tabular display-small text-on-surface">
+            {team.explanations.reduce((n, e) => n + e.okCount, 0)}
+            <span className="headline-small text-on-surface-variant">/{team.explanations.reduce((n, e) => n + e.total, 0)}</span>
+          </p>
         </div>
         <div>
           <p className="flex items-center gap-1 label-medium text-on-surface-variant">
-            가장 덜 맞는 팀원
-            <InfoTip align="start">평균만 보면 한 사람이 소외될 수 있어서, 팀에서 가장 불리한 사람의 적합도를 함께 보여 줘요.</InfoTip>
+            응답이 가장 다른 팀원
+            <InfoTip align="start">팀 평균이 좋아도 한 사람이 동떨어지면 문제가 생길 수 있어서, 평균과 함께 가장 먼 사람을 보여 줘요 (Barrick et al., 1998). 목표·AI·협업 11문항에서 다른 팀원과의 평균 점수 차이예요.</InfoTip>
           </p>
-          <p className={cx('tabular headline-small text-on-surface')}>{team.minMemberFit.toFixed(2)}</p>
+          <p className="title-medium text-on-surface">
+            {team.outlier.nickname} <span className="tabular body-medium text-on-surface-variant">평균 {team.outlier.avgGap}점 차이</span>
+          </p>
         </div>
         {team.missingInfoNotice && (
           <span className="inline-flex items-center gap-1 rounded-m3-sm bg-surface-container px-2.5 py-1 label-medium text-on-surface-variant">
@@ -131,6 +134,21 @@ export function TeamPuzzleMerge({ team, unlocked }: { team: TeamCandidate; unloc
           </span>
         )}
       </div>
+
+      {team.cautions.length > 0 && (
+        <div className="rounded-m3-md bg-surface-container p-4">
+          <p className="flex items-center gap-1 label-large text-on-surface">
+            <Icon name="flag" size={18} />
+            첫 회의에서 확인할 점
+            <InfoTip align="start">근거가 약한 규칙이라 점수에는 넣지 않고 확인할 점으로만 보여 줘요.</InfoTip>
+          </p>
+          <ul className="mt-1.5 list-disc space-y-0.5 pl-5 body-small text-on-surface-variant">
+            {team.cautions.slice(0, 3).map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

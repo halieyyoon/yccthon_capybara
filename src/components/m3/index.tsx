@@ -2,10 +2,11 @@
 
 // [임시 구현 · 규혁 브랜치] 소유: 연서 (src/components/)
 // 기본 컴포넌트 — Google Classroom 기반 Material Design 3, stt.gyuhyeok.com(E:UM) 규칙을 따른다.
-// 주요 버튼 = 연한 파랑 바탕 + 진한 파랑 글자(화면마다 1개) · 보조 = 테두리 · 텍스트 = 파랑 글자
+// 주요 버튼 = 연한 파랑 바탕 + 진한 파랑 글자(화면마다 1개) · 보조 = 연한 회색 면 · 텍스트 = 파랑 글자
 // 카드 12 / 패널 16 / 버튼·칩 알약 · 세그먼트·탭 = 연한 알약 안 흰 칩 · 대화상자 22 · 그림자는 떠 있는 것에만
 
 import Link from 'next/link';
+import { createPortal } from 'react-dom';
 import {
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
@@ -32,14 +33,15 @@ export function Icon({ name, filled, size = 24, className }: { name: string; fil
   );
 }
 
-type ButtonVariant = 'filled' | 'tonal' | 'outlined' | 'text' | 'elevated';
+type ButtonVariant = 'prominent' | 'filled' | 'tonal' | 'outlined' | 'text' | 'elevated';
 
 const buttonStyles: Record<ButtonVariant, string> = {
-  // 주요: 연한 파랑 + 진한 파랑 글자
+  prominent: 'bg-primary text-on-primary hover:brightness-95',
+  // 주요: 연한 파랑 + 진한 파랑 글자 (화면마다 하나)
   filled: 'bg-primary-container text-on-primary-container hover:bg-[#a8d7fa] dark:hover:bg-[#0b5a8f]',
   // 보조 강조: 연한 파랑 면
   tonal: 'bg-secondary-container text-on-secondary-container hover:brightness-95',
-  // 보조: 테두리 없이 연한 회색 면 (테두리 지양)
+  // 보조: 테두리 없이 연한 회색 면
   outlined: 'bg-surface-container text-on-surface hover:bg-surface-container-highest',
   // 텍스트: 파랑 글자
   text: 'text-secondary hover:bg-secondary-container px-3',
@@ -179,7 +181,7 @@ export function Chip({
       aria-pressed={kind === 'filter' ? !!selected : undefined}
       className={cx(
         'inline-flex min-h-9 items-center gap-1.5 rounded-full px-4 label-large transition-colors duration-200 disabled:opacity-40 pointer-coarse:min-h-11',
-        selected ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container text-on-surface hover:bg-surface-container-highest',
+        selected ? 'bg-secondary-container font-semibold text-on-secondary-container' : 'bg-surface-container text-on-surface hover:bg-surface-container-highest',
         (selected || icon) && 'pl-3',
       )}
     >
@@ -217,7 +219,7 @@ export function SegmentedButton<T extends string | number>({
             className={cx(
               'flex min-h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-full label-large transition-[background-color,color,box-shadow] duration-200 pointer-coarse:min-h-11',
               dense ? 'px-1' : 'px-3',
-              sel ? 'bg-surface text-secondary shadow-[0_1px_2px_rgba(32,33,36,.14)]' : 'text-on-surface-variant hover:text-on-surface',
+              sel ? 'bg-surface font-semibold text-secondary shadow-[0_1px_2px_rgba(32,33,36,.14)]' : 'text-on-surface-variant hover:text-on-surface',
             )}
           >
             {o.icon && <Icon name={o.icon} size={18} />}
@@ -355,8 +357,8 @@ export function Dialog({
       document.body.style.overflow = prev;
     };
   }, [open, onClose]);
-  if (!open) return null;
-  return (
+  if (!open || typeof document === 'undefined') return null;
+  return createPortal(
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
       <div className="absolute inset-0 bg-scrim/50" onClick={onClose} />
       <div
@@ -378,7 +380,8 @@ export function Dialog({
         {actions && <div className="flex justify-end gap-2 px-6 pb-6 pt-4">{actions}</div>}
         {!actions && <div className="h-4" />}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -478,14 +481,17 @@ export function Monogram({ name, tone = 'primary', size = 40 }: { name: string; 
  */
 export function InfoTip({ children, label = '설명 보기', align = 'center', className }: { children: ReactNode; label?: string; align?: 'start' | 'center' | 'end'; className?: string }) {
   const [open, setOpen] = useState(false);
-  const [shift, setShift] = useState(0);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
   const tipRef = useRef<HTMLSpanElement>(null);
   const id = useId();
+
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || tipRef.current?.contains(t)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
     document.addEventListener('pointerdown', onDown);
@@ -495,23 +501,40 @@ export function InfoTip({ children, label = '설명 보기', align = 'center', c
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
-  // 열릴 때 말풍선이 화면 좌우 밖으로 나가면 안쪽으로 밀어 넣음 (여백 8px)
+
+  // 말풍선은 body에 portal로 그려서 overflow:hidden 카드 안에서도 잘리지 않게 하고,
+  // 버튼 위치 기준으로 좌우는 화면 안쪽(여백 8px)에 맞추고, 아래 공간이 부족하면 위로 띄움
   useLayoutEffect(() => {
     if (!open) {
-      setShift(0);
+      setPos(null);
       return;
     }
-    const el = tipRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const vw = document.documentElement.clientWidth;
-    const pad = 8;
-    let dx = 0;
-    if (r.right > vw - pad) dx = vw - pad - r.right;
-    if (r.left + dx < pad) dx = pad - r.left;
-    if (dx !== 0) setShift(dx);
-  }, [open]);
-  const base = align === 'center' ? 'translateX(-50%)' : '';
+    const place = () => {
+      const btn = ref.current?.getBoundingClientRect();
+      const tip = tipRef.current?.getBoundingClientRect();
+      if (!btn) return;
+      const w = tip?.width ?? 0;
+      const h = tip?.height ?? 0;
+      const vw = document.documentElement.clientWidth;
+      const vh = window.innerHeight;
+      const pad = 8;
+      let left = align === 'start' ? btn.left : align === 'end' ? btn.right - w : btn.left + btn.width / 2 - w / 2;
+      left = Math.min(Math.max(left, pad), vw - pad - w);
+      let top = btn.bottom + 4;
+      if (top + h > vh - pad && btn.top - 4 - h > pad) top = btn.top - 4 - h;
+      setPos({ top, left });
+    };
+    place();
+    const raf = requestAnimationFrame(place);
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [open, align]);
+
   return (
     <span
       ref={ref}
@@ -529,22 +552,20 @@ export function InfoTip({ children, label = '설명 보기', align = 'center', c
       >
         <Icon name="info" size={16} />
       </button>
-      {open && (
-        <span
-          ref={tipRef}
-          id={id}
-          role="tooltip"
-          className={cx(
-            'absolute top-full z-40 mt-1 w-max max-w-[min(280px,calc(100vw-16px))] rounded-m3-sm bg-inverse-surface px-3 py-2 text-left body-small font-normal normal-case tracking-normal text-inverse-on-surface shadow-[0_4px_16px_rgba(32,33,36,.12)]',
-            align === 'start' && 'left-0',
-            align === 'center' && 'left-1/2',
-            align === 'end' && 'right-0',
-          )}
-          style={{ transform: `${base} translateX(${shift}px)` }}
-        >
-          {children}
-        </span>
-      )}
+      {open &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <span
+            ref={tipRef}
+            id={id}
+            role="tooltip"
+            className="fixed z-[60] w-max max-w-[min(280px,calc(100vw-16px))] rounded-m3-sm bg-inverse-surface px-3 py-2 text-left body-small font-normal normal-case tracking-normal text-inverse-on-surface shadow-[0_4px_16px_rgba(32,33,36,.12)]"
+            style={{ top: pos?.top ?? -9999, left: pos?.left ?? -9999, visibility: pos ? 'visible' : 'hidden' }}
+          >
+            {children}
+          </span>,
+          document.body,
+        )}
     </span>
   );
 }

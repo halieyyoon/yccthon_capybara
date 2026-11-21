@@ -11,7 +11,7 @@ export function AvatarMeetingCard({ result, loading, loadingStepText }: { result
   if (loading || !result) {
     return (
       <div className="rounded-m3-lg bg-surface-container p-5">
-        <p className="title-small text-on-surface">{loadingStepText ?? 'AI 아바타 모의회의 중'}</p>
+        <p role="status" className="title-small text-on-surface">{loadingStepText ?? 'AI 아바타 모의회의 중'}</p>
         <LinearProgress className="mt-4" />
       </div>
     );
@@ -21,28 +21,27 @@ export function AvatarMeetingCard({ result, loading, loadingStepText }: { result
       <div className="rounded-m3-lg bg-surface-container p-5">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <p className="title-medium text-on-surface">{result.agenda}</p>
-          <span className="rounded-m3-sm bg-tertiary-container px-2.5 py-1 label-medium text-on-tertiary-container">{result.chemistryBadge}</span>
+          <span className="rounded-m3-sm bg-surface-container-highest px-2.5 py-1 label-medium text-on-surface-variant">{result.chemistryBadge}</span>
         </div>
-        <ol className="mt-4 space-y-3">
-          {result.turns.map((t, i) => (
-            <li key={i} className="flex gap-3">
-              <Monogram name={t.speakerNickname} size={32} tone="secondary" />
-              <div className="min-w-0">
-                <p className="label-medium text-on-surface-variant">
-                  {t.speakerNickname} · {t.roleTag}
-                </p>
-                <p className="body-medium text-on-surface">{t.message}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <h3 className="mt-4 title-small">아바타들은 어떤 이야기를 나눴나요?</h3>
+        {typeof result.discussionSummary === 'string' && result.discussionSummary.trim() ? (
+          <p className="mt-1 body-medium">{result.discussionSummary}</p>
+        ) : (
+          <ul className="mt-1 space-y-1 body-medium">
+            {result.turns.slice(0, 3).map((turn, i) => (
+              <li key={i}><strong>{turn.speakerNickname}</strong> “{turn.message}”</li>
+            ))}
+          </ul>
+        )}
       </div>
 
+
+
       <div className="grid gap-3 md:grid-cols-2">
-        <Block icon="handshake" title="합의안">
+        <Block icon="handshake" title="합의한 내용">
           <p>{result.consensus}</p>
         </Block>
-        <Block icon="error" title="미해결 쟁점">
+        <Block icon="error" title="아직 정하지 못한 점">
           <ul className="list-disc space-y-1 pl-4">
             {result.unresolvedIssues.map((x, i) => (
               <li key={i}>{x}</li>
@@ -64,7 +63,23 @@ export function AvatarMeetingCard({ result, loading, loadingStepText }: { result
           </ol>
         </Block>
       </div>
-      <p className="body-small text-on-surface-variant">AI 모의회의는 행동 예측이 아니라 사전 쟁점 확인을 위한 가상 실험입니다.</p>
+      <details className="rounded-m3-lg bg-surface-container-low p-4">
+        <summary className="cursor-pointer title-small">아바타 대화 전문 보기</summary>
+        <ol className="mt-4 space-y-3">
+          {result.turns.map((t, i) => (
+            <li key={i} className="flex gap-3">
+              <Monogram name={t.speakerNickname} size={32} tone="secondary" />
+              <div className="min-w-0">
+                <p className="label-medium text-on-surface-variant">
+                  {t.speakerNickname} · {t.roleTag}
+                </p>
+                <p className="body-medium text-on-surface">{t.message}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </details>
+      <p className="body-small text-on-surface-variant">{result.source === 'fallback' ? '시연용 모의회의 · 팀원의 설문 응답을 반영한 예시 대화예요.' : '팀원의 설문 응답을 바탕으로 구성한 가상 대화예요.'}</p>
     </div>
   );
 }

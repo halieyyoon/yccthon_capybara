@@ -54,6 +54,7 @@ export function PilotRoomView({
   onDismissSuggestedPatch?: () => void;
   ended?: boolean;
 }) {
+  const [memoOpen, setMemoOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
   const done = ended || remainingSec <= 0;
@@ -72,8 +73,8 @@ export function PilotRoomView({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3 rounded-m3-xl bg-surface-container-low px-4 py-3">
+    <div className="flex h-[calc(100dvh-7rem-env(safe-area-inset-bottom))] flex-col gap-2 lg:block lg:h-auto lg:space-y-4">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 lg:flex lg:gap-3 rounded-m3-xl bg-surface-container-low px-4 py-3">
         <span
           className={cx(
             'tabular rounded-full px-3 py-1 title-large',
@@ -87,21 +88,22 @@ export function PilotRoomView({
           <p className="label-small text-on-surface-variant">{contestTitle}</p>
           <p className="title-small">{topic}</p>
         </div>
-        {!done && (
-          <div className="flex gap-1">
+          <div className="col-span-2 flex flex-wrap items-center gap-1 lg:ml-auto">
+            <button type="button" className="mr-auto min-h-11 rounded-full px-3 label-medium lg:hidden" aria-expanded={memoOpen} aria-controls="pilot-memo" onClick={() => setMemoOpen(!memoOpen)}>{memoOpen ? '채팅 보기' : suggestedPatch ? '공유 메모 · 새 제안' : '공유 메모'}</button>
+            {!done && <>
             <Button variant="text" icon="fast_forward" onClick={onToggleFastDemo}>
               30초
             </Button>
             <Button variant="tonal" icon="how_to_vote" onClick={onFinish}>
               종료 & 투표
             </Button>
+            </>}
           </div>
-        )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-        <section className="flex min-h-[60dvh] flex-col overflow-hidden rounded-m3-xl bg-surface-container-low">
-          <div className="flex items-center gap-2 px-4 pb-1 pt-3">
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_340px]">
+        <section className={cx("min-h-0 flex-col overflow-hidden rounded-m3-xl bg-surface-container-low lg:flex lg:min-h-[60dvh]", memoOpen ? "hidden" : "flex")}>
+          <div className="flex flex-wrap items-center gap-2 px-4 pb-1 pt-3">
             {members.map((m) => (
               <span key={m.id} className="inline-flex items-center gap-1.5 label-medium text-on-surface-variant">
                 <Monogram name={m.nickname} size={24} tone="secondary" />
@@ -111,7 +113,7 @@ export function PilotRoomView({
             ))}
             <InfoTip align="end">실제 사람이 아니라 응답 기반 AI 팀원이에요. 실제 행동을 예측하지 않아요.</InfoTip>
           </div>
-          <div ref={listRef} className="flex-1 space-y-4 overflow-y-auto p-4" style={{ maxHeight: '56dvh' }}>
+          <div ref={listRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 lg:max-h-[56dvh]">
             {messages.map((m) => (
               <div key={m.id} className={cx('enter flex gap-2', m.isUser && 'flex-row-reverse')}>
                 {!m.isUser && <Monogram name={m.senderNickname} size={32} tone="secondary" />}
@@ -156,13 +158,13 @@ export function PilotRoomView({
               rows={1}
               placeholder={done ? '끝났어요' : '메시지'}
               aria-label="메시지 입력"
-              className="max-h-32 min-h-12 flex-1 resize-none rounded-[24px] bg-surface-container-highest px-5 py-3 body-large text-on-surface outline-none placeholder:text-on-surface-variant focus:ring-2 focus:ring-primary"
+              className="max-h-32 min-h-12 min-w-0 flex-1 resize-none rounded-[24px] bg-surface-container-highest px-5 py-3 body-large text-on-surface outline-none placeholder:text-on-surface-variant focus:ring-2 focus:ring-primary"
             />
             <IconButton icon="send" label="보내기" variant="filled" type="submit" disabled={!draft.trim() || isTyping || done} className="size-12" />
           </form>
         </section>
 
-        <aside className="space-y-3 rounded-m3-xl bg-surface-container-low p-4">
+        <aside id="pilot-memo" className={cx("min-h-0 space-y-3 overflow-y-auto rounded-m3-xl bg-surface-container-low p-4 lg:block", !memoOpen && "hidden")}>
           <h2 className="title-medium">공유 메모</h2>
           {suggestedPatch && (
             <div className="enter rounded-m3-md bg-tertiary-container p-3 text-on-tertiary-container">

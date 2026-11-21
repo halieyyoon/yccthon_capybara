@@ -37,6 +37,7 @@ function fallback(contest: Contest, team: TeamCandidate): AvatarMeetingResult {
     contestTitle: contest.title,
     agenda: AGENDA,
     turns,
+    discussionSummary: `${fastest.nickname} 아바타가 오늘 밤까지 클릭 가능한 화면을 만들자고 제안했어요. ${careful.nickname} 아바타는 시연이 끊기지 않게 기능 범위를 먼저 줄이자고 했고, ${aiStrict.nickname} 아바타는 AI 코드의 검증 담당도 정하자고 했어요.`,
     consensus: `핵심 기능 1개만 시연 범위로 정하고, 첫날 밤까지 클릭 가능한 화면을 만든 뒤 둘째 날 다듬는다.`,
     unresolvedIssues: [
       `${fastest.nickname}님은 먼저 만들자는 쪽, ${careful.nickname}님은 범위를 더 줄이자는 쪽이에요. 기능 동결 시점을 정해야 해요.`,
@@ -62,10 +63,13 @@ export async function POST(req: Request) {
   const { contest, team } = body;
   if (!contest || !team?.members?.length) return NextResponse.json({ error: 'contest and team required' }, { status: 400 });
 
+  const startedAt = Date.now();
+  const demoDuration = 3000 + Math.floor(Math.random() * 2001);
   const prompt = `너는 대학생 해커톤 팀 매칭 서비스 On-do의 "AI 아바타 사전 모의회의" 진행자다.
 아래 4명의 익명 페르소나(설문 응답 근거)를 바탕으로, 공통 안건에 대해 6턴 가상 회의를 한국어 구어체로 만들어라.
 - 이건 실제 행동 예측이 아니라, 응답 차이에서 생길 수 있는 쟁점을 미리 드러내는 가상 실험이다.
 - 각 발언은 그 사람의 응답(목표·AI 규범·작업 방식·역량·지뢰)에 근거해야 한다. 과장, 점수, 퍼센트, '궁합' 같은 말은 쓰지 마라.
+- discussionSummary에는 turns에서 누가 무엇을 제안했고 다른 아바타가 어떻게 응답했는지 닉네임을 넣어 2~3문장으로 적어라. 발언에 없는 갈등이나 동기를 덧붙이지 말고, 합의와 남은 문제는 각각 consensus와 unresolvedIssues에 적어라.
 - 6턴, 발언당 1~2문장. 4명이 모두 한 번 이상 말한다.
 대회: ${contest.title} — ${contest.summary}
 안건: ${AGENDA}
@@ -73,11 +77,13 @@ export async function POST(req: Request) {
 페르소나: ${JSON.stringify(team.members.map(personaOf))}
 
 JSON으로만 답하라:
-{"turns":[{"speakerId":"","speakerNickname":"","roleTag":"","message":""}],"consensus":"","unresolvedIssues":["",""],"expectedRoleSplit":["닉네임 — 역할"],"questionsToAskTeam":["","",""],"chemistryBadge":"8자 안팎의 짧은 팀 성향 이름"}`;
+{"discussionSummary":"","turns":[{"speakerId":"","speakerNickname":"","roleTag":"","message":""}],"consensus":"","unresolvedIssues":["",""],"expectedRoleSplit":["닉네임 — 역할"],"questionsToAskTeam":["","",""],"chemistryBadge":"8자 안팎의 짧은 팀 성향 이름"}`;
 
   const ai = await callGeminiJson<Omit<AvatarMeetingResult, 'teamId' | 'contestTitle' | 'agenda'>>(prompt);
   if (ai && Array.isArray(ai.turns) && ai.turns.length >= 4 && ai.consensus) {
     return NextResponse.json({ ...ai, teamId: team.id, contestTitle: contest.title, agenda: AGENDA, source: 'gemini' });
   }
+  const remaining = demoDuration - (Date.now() - startedAt);
+  if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
   return NextResponse.json({ ...fallback(contest, team), source: 'fallback' });
 }

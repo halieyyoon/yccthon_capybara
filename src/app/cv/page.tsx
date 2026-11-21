@@ -31,25 +31,29 @@ function ListField({ label, values, onChange }: { label: string; values: string[
   };
   return (
     <div>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
       <TextField
         label={label}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return;
           if (e.key === 'Enter' || e.key === ',') {
             e.preventDefault();
             add();
           }
         }}
         onBlur={add}
-        placeholder="Enter로 추가"
+        placeholder={label + ' 입력'}
       />
+      <Button type="button" variant="tonal" aria-label={label + ' 추가'} onMouseDown={e => e.preventDefault()} onClick={add}>추가</Button>
+      </div>
       {values.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
           {values.map((v) => (
-            <span key={v} className="inline-flex h-8 items-center gap-1 rounded-m3-sm bg-surface-container pl-3 pr-1 label-large text-on-surface-variant">
+            <span key={v} className="inline-flex min-h-11 max-w-full items-center gap-1 rounded-m3-sm bg-surface-container pl-3 pr-1 label-large text-on-surface-variant">
               {v}
-              <button type="button" aria-label={`${v} 삭제`} className="state-layer grid size-6 place-items-center rounded-full" onClick={() => onChange(values.filter((x) => x !== v))}>
+              <button type="button" aria-label={`${v} 삭제`} className="state-layer grid size-11 shrink-0 place-items-center rounded-full" onClick={() => onChange(values.filter((x) => x !== v))}>
                 <Icon name="close" size={16} />
               </button>
             </span>
@@ -164,8 +168,8 @@ export default function CvPage() {
             <div className="enter flex flex-wrap items-center gap-4 rounded-m3-xl bg-primary-container p-5 text-on-primary-container">
               <Icon name="extension" filled />
               <div className="min-w-0 flex-1">
-                <p className="title-medium">퍼즐 완성! 이제 CV만 남았어요</p>
-                <p className="body-medium">수상 경력이 없어도 괜찮아요. 수업 팀플이나 관심 분야부터 채워볼까요?</p>
+                <p className="title-medium">퍼즐 완성! 닉네임과 전공부터 채워 볼까요?</p>
+                <p className="body-medium">수상 경력이 없어도 괜찮아요. 수업 팀플이나 관심 분야부터 채우면 돼요.</p>
               </div>
               <Button variant="text" onClick={() => router.push('/profile')}>
                 나중에
@@ -226,8 +230,9 @@ export default function CvPage() {
           </div>
 
           <section id="basic" className="scroll-mt-24">
-            <SectionTitle n={1} title="기본 정보" tip="실명은 팀 확정 후에만 공개돼요." />
+            <SectionTitle n={1} title="기본 정보" tip="닉네임은 팀이 확정되기 전에 보이는 이름이에요. 실명은 팀 확정 후에만 공개돼요." />
             <div className="grid gap-4 sm:grid-cols-2">
+              <TextField label="닉네임" value={user.nickname} onChange={(e) => setCurrentUser({ ...user, nickname: e.target.value.slice(0, 12) })} />
               <TextField label="실명" value={cv.realName} onChange={(e) => updateCv({ realName: e.target.value })} />
               <TextField label="학교" value={cv.university} onChange={(e) => updateCv({ university: e.target.value })} />
               <TextField label="전공" value={cv.major} onChange={(e) => updateCv({ major: e.target.value })} />
@@ -295,7 +300,11 @@ export default function CvPage() {
             <TextArea label="함께 일할 때 나는" value={cv.collaborationNote} onChange={(e) => updateCv({ collaborationNote: e.target.value })} placeholder="예: 결정 사항은 그날 문서로 남겨요" />
           </section>
 
-          <div className="sticky bottom-24 z-20 flex flex-wrap justify-end gap-2 rounded-m3-xl bg-surface-container-high p-3 md:bottom-4">
+          <div className="space-y-3">
+            <Button icon="check" className="w-full sm:w-auto" onClick={() => router.push('/profile')}>완료</Button>
+            <details className="rounded-m3-md bg-surface-container-low px-4">
+              <summary className="cursor-pointer py-3 title-small">내보내기</summary>
+              <div className="flex flex-wrap gap-2 pb-3">
             <Button
               variant="text"
               icon="content_copy"
@@ -313,9 +322,8 @@ export default function CvPage() {
             <Button variant="tonal" icon="print" onClick={() => window.print()}>
               PDF 저장 / 인쇄
             </Button>
-            <Button icon="check" onClick={() => router.push('/profile')}>
-              완료
-            </Button>
+              </div>
+            </details>
           </div>
         </div>
       </div>

@@ -18,7 +18,7 @@ export function CvPrintSheet({ profile }: { profile: UserProfile }) {
           {cv.headline && <p className="mt-1 text-neutral-600">{cv.headline}</p>}
         </div>
         <div className="flex shrink-0 flex-col items-center">
-          <PuzzlePiece mode={profile.temperatureMode} edges={[-1, 1, -1, 1]} label={profile.collabType} size={72} />
+          <PuzzlePiece mode={profile.temperatureMode} edges={[-1, 1, -1, 1]} size={72} />
           <span className="text-[10px] text-neutral-500">On-do · {profile.temperature}°</span>
         </div>
       </header>

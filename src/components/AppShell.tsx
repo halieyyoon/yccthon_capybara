@@ -8,6 +8,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { cx, Icon } from '@/components/m3';
+import { DEMO_USER } from '@/store/demoUser';
+import { useOndoStore } from '@/store/useOndoStore';
 
 const NAV = [
   { href: '/profile', label: '내 퍼즐', icon: 'extension' },
@@ -40,6 +42,7 @@ export function AppShell({
   hideNav?: boolean;
 }) {
   const path = usePathname();
+  const isDemo = useOndoStore((s) => s.currentUser?.id === DEMO_USER.id);
   const header = (
     <div className={cx('flex h-14 items-center gap-2', !title && !back && 'min-[720px]:h-12 min-[720px]:pt-2')}>
       {back && (
@@ -48,7 +51,15 @@ export function AppShell({
         </Link>
       )}
       {title ? <h1 className="truncate headline-small">{title}</h1> : <span className="min-[720px]:hidden"><Wordmark /></span>}
-      <div className="ml-auto flex items-center gap-1">{actions}</div>
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        {isDemo && (
+          <Link href="/" className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full bg-surface-container-low px-3 label-large text-primary transition-colors hover:bg-secondary-container">
+            <Icon name="home" size={18} />
+            초기 화면으로
+          </Link>
+        )}
+        {actions}
+      </div>
     </div>
   );
 
@@ -81,7 +92,7 @@ export function AppShell({
 
       <div
         className={cx(
-          'flex min-h-dvh min-w-0 flex-1 flex-col bg-surface pb-24 min-[720px]:min-h-0 min-[720px]:pb-0',
+          'flex min-h-dvh min-w-0 flex-1 flex-col overflow-x-clip bg-surface pb-24 min-[720px]:min-h-0 min-[720px]:pb-0',
           !hideNav && 'min-[720px]:mt-3 min-[720px]:min-h-[calc(100dvh-12px)] min-[720px]:rounded-tl-[26px] min-[720px]:bg-surface',
           hideNav && 'bg-surface',
         )}

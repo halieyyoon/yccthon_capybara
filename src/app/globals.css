@@ -15,7 +15,7 @@
   --md-sys-color-on-secondary: #ffffff;
   --md-sys-color-secondary-container: #e8f0fe;
   --md-sys-color-on-secondary-container: #174ea6;
-  --md-sys-color-tertiary: #a85b00;
+  --md-sys-color-tertiary: #9a621b;
   --md-sys-color-on-tertiary: #ffffff;
   --md-sys-color-tertiary-container: #fef7e0;
   --md-sys-color-on-tertiary-container: #7a4100;
@@ -41,12 +41,15 @@
 
   --page-bg: #f7f9fc;
   /* Classroom 수업 카드식 온도 머리띠 */
-  --band-fun: linear-gradient(125deg, #fff4ef, #fde0d4);
-  --band-fun-fg: #9a3b1d;
-  --band-balanced: linear-gradient(125deg, #f0f5ff, #d4e5fc);
-  --band-balanced-fg: #174ea6;
-  --band-serious: linear-gradient(125deg, #e8edf7, #c9d4ea);
-  --band-serious-fg: #1f3560;
+  --glass-edge-fun: #e2a7bd;
+  --band-fun: linear-gradient(125deg, color-mix(in srgb, var(--glass-edge-fun) 16%, white), color-mix(in srgb, var(--glass-edge-fun) 44%, white));
+  --band-fun-fg: color-mix(in srgb, var(--glass-edge-fun) 44%, #171421);
+  --glass-edge-balanced: #82c9d9;
+  --band-balanced: linear-gradient(125deg, color-mix(in srgb, var(--glass-edge-balanced) 16%, white), color-mix(in srgb, var(--glass-edge-balanced) 44%, white));
+  --band-balanced-fg: color-mix(in srgb, var(--glass-edge-balanced) 44%, #171421);
+  --glass-edge-serious: #9e91e3;
+  --band-serious: linear-gradient(125deg, color-mix(in srgb, var(--glass-edge-serious) 16%, white), color-mix(in srgb, var(--glass-edge-serious) 44%, white));
+  --band-serious-fg: color-mix(in srgb, var(--glass-edge-serious) 44%, #171421);
 
   /* puzzle temperature palettes (tone 30 / 40 / 80 / 90 / 95) */
   --puzzle-fun-30: #822715;
@@ -116,12 +119,12 @@
     --md-sys-color-inverse-on-surface: #1f1f1f;
     --md-sys-color-inverse-primary: #1a73e8;
     --page-bg: #131314;
-    --band-fun: linear-gradient(125deg, #3a241c, #2e1c16);
-    --band-fun-fg: #ffb59c;
-    --band-balanced: linear-gradient(125deg, #1d2b45, #172540);
-    --band-balanced-fg: #a8c7fa;
-    --band-serious: linear-gradient(125deg, #1f2636, #182031);
-    --band-serious-fg: #c3d1f0;
+    --band-fun: linear-gradient(125deg, color-mix(in srgb, var(--glass-edge-fun) 23%, #15141c), color-mix(in srgb, var(--glass-edge-fun) 12%, #15141c));
+    --band-fun-fg: #f3d5e1;
+    --band-balanced: linear-gradient(125deg, color-mix(in srgb, var(--glass-edge-balanced) 23%, #15141c), color-mix(in srgb, var(--glass-edge-balanced) 12%, #15141c));
+    --band-balanced-fg: #b9e5ef;
+    --band-serious: linear-gradient(125deg, color-mix(in srgb, var(--glass-edge-serious) 23%, #15141c), color-mix(in srgb, var(--glass-edge-serious) 12%, #15141c));
+    --band-serious-fg: #dcd5fc;
     color-scheme: dark;
   }
 }
