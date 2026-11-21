@@ -139,7 +139,17 @@ export const useOndoStore = create<OndoState>()(
         await sleep(30);
         const points = runClusterAnalysis(user, SEED_USERS);
         const { teams, annotatedPoints } = recommendTeams(user, SEED_USERS, contest, points);
-        set({ clusteredPoints: annotatedPoints, recommendedTeams: teams, matchingBusy: false });
+        // 팀 id는 대회별로 같으므로, 다시 매칭하면 그 대회의 이전 모의회의·파일럿 캐시를 버림 (언락된 팀은 유지)
+        const { avatarMeetings, pilotStates, unlockedTeamIds } = get();
+        const stale = (id: string) => id.startsWith(`${contestId}-team-`) && !unlockedTeamIds.includes(id);
+        const keep = <T,>(rec: Record<string, T>) => Object.fromEntries(Object.entries(rec).filter(([id]) => !stale(id)));
+        set({
+          clusteredPoints: annotatedPoints,
+          recommendedTeams: teams,
+          avatarMeetings: keep(avatarMeetings),
+          pilotStates: keep(pilotStates),
+          matchingBusy: false,
+        });
         if (contest.scale === 'large' && teams[0]) await get().requestAvatarMeeting(teams[0].id);
       },
 

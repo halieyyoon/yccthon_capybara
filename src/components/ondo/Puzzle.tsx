@@ -68,6 +68,9 @@ export const PUZZLE_THEME: Record<TemperatureMode, { fill: string; stroke: strin
   serious: { fill: 'var(--puzzle-serious-30)', stroke: 'var(--puzzle-serious-ink)', ink: '#ffffff', surface: 'var(--puzzle-serious-95)', accent: 'var(--puzzle-serious-80)' },
 };
 
+/** 조각 SVG의 viewBox 여백 비율 (조각 본체 100 + 양쪽 32) */
+export const PIECE_PAD_RATIO = 32 / 164;
+
 export function PuzzlePiece({
   mode,
   edges = [1, 1, -1, -1],
@@ -76,6 +79,7 @@ export function PuzzlePiece({
   size = 160,
   className,
   highlight,
+  labelSize = 15,
 }: {
   mode: TemperatureMode;
   edges?: [EdgeType, EdgeType, EdgeType, EdgeType];
@@ -84,6 +88,7 @@ export function PuzzlePiece({
   size?: number;
   className?: string;
   highlight?: boolean;
+  labelSize?: number;
 }) {
   const t = PUZZLE_THEME[mode];
   const pad = 32;
@@ -98,7 +103,7 @@ export function PuzzlePiece({
         style={{ transition: 'd 420ms var(--md-sys-motion-emphasized), fill 300ms' }}
       />
       {label && (
-        <text x={50} y={sublabel ? 47 : 55} textAnchor="middle" fill={t.ink} style={{ font: '600 15px var(--font-sans)', letterSpacing: '0.04em' }}>
+        <text x={50} y={sublabel ? 47 : 55} textAnchor="middle" fill={t.ink} style={{ font: `600 ${labelSize}px var(--font-sans)`, letterSpacing: labelSize < 14 ? '0' : '0.04em' }}>
           {label}
         </text>
       )}

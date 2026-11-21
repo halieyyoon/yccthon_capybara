@@ -232,7 +232,7 @@ export default function MatchPage() {
                               <p className="body-medium text-on-surface-variant">{team.missingInfoNotice}</p>
                             </div>
                           )}
-                          <TeamPuzzleMerge members={team.members} pairs={team.puzzlePairs} />
+                          <TeamPuzzleMerge members={team.members} pairs={team.puzzlePairs} size={150} />
                         </div>
 
                         <div className="space-y-5">

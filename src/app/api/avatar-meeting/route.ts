@@ -10,19 +10,27 @@ import { callGeminiJson, personaOf, topRole } from '../_lib/gemini';
 const AGENDA = '20분 안에 이번 대회의 핵심 MVP 기능 1개와 역할 분담 합의하기';
 
 function fallback(contest: Contest, team: TeamCandidate): AvatarMeetingResult {
-  const [a, b, c, d] = team.members;
+  const a = team.members[0];
   const role = (u: typeof a) => ROLE_LABEL[topRole(u)];
   const topic = contest.pilotTopics[0] ?? contest.summary;
-  const fastest = [...team.members].sort((x, y) => y.features27.prototyping_preference - x.features27.prototyping_preference)[0];
-  const careful = [...team.members].sort((x, y) => y.features27.quality_priority - x.features27.quality_priority)[0];
-  const aiStrict = [...team.members].sort((x, y) => y.features27.ai_verification_strictness - x.features27.ai_verification_strictness)[0];
+  // 서로 다른 사람이 말하도록, 이미 고른 사람은 빼고 성향이 가장 두드러진 사람을 고름
+  const used = new Set<string>([a.id]);
+  const pickBy = (score: (u: typeof a) => number) => {
+    const rest = team.members.filter((m) => !used.has(m.id));
+    const chosen = [...(rest.length ? rest : team.members)].sort((x, y) => score(y) - score(x))[0];
+    used.add(chosen.id);
+    return chosen;
+  };
+  const fastest = pickBy((u) => u.features27.prototyping_preference - u.features27.quality_priority);
+  const careful = pickBy((u) => u.features27.quality_priority - u.features27.prototyping_preference);
+  const aiStrict = pickBy((u) => u.features27.ai_verification_strictness);
   const turns: AvatarTurn[] = [
     { speakerId: a.id, speakerNickname: a.nickname, roleTag: role(a), message: `안건은 “${topic}”예요. 저는 사용자가 처음 30초 안에 가치를 느끼는 기능 하나만 남기고 싶어요.` },
     { speakerId: fastest.id, speakerNickname: fastest.nickname, roleTag: role(fastest), message: '오늘 밤 안에 클릭되는 화면부터 만들어 보고, 내일 아침에 고치면 어떨까요?' },
     { speakerId: careful.id, speakerNickname: careful.nickname, roleTag: role(careful), message: '빨리 만드는 건 좋은데, 시연 흐름이 끊기면 감점이 커요. 범위를 한 번 더 줄이자는 쪽이에요.' },
     { speakerId: aiStrict.id, speakerNickname: aiStrict.nickname, roleTag: role(aiStrict), message: 'AI로 코드를 써도 되지만, 누가 어떤 부분을 검증할지는 지금 정해 두고 싶어요.' },
-    { speakerId: b.id, speakerNickname: b.nickname, roleTag: role(b), message: `그럼 핵심 기능은 하나로 묶고, 저는 ${role(b)} 쪽을 맡을게요.` },
-    { speakerId: d?.id ?? c.id, speakerNickname: d?.nickname ?? c.nickname, roleTag: role(d ?? c), message: '좋아요. 발표 자료는 마지막 4시간 전에 동결하는 걸로 해요.' },
+    { speakerId: a.id, speakerNickname: a.nickname, roleTag: role(a), message: `그럼 핵심 기능은 하나로 묶고, 저는 ${role(a)} 쪽을 맡을게요. 기능 동결 시간만 정해요.` },
+    { speakerId: fastest.id, speakerNickname: fastest.nickname, roleTag: role(fastest), message: '좋아요. 발표 자료는 마감 4시간 전에 동결하는 걸로 해요.' },
   ];
   return {
     teamId: team.id,
