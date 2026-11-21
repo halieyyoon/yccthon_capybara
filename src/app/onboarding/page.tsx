@@ -63,7 +63,7 @@ import {
 
 
 
-/** 선택 카드 — 안 고름: 흰 바탕 + 진한 테두리 / 고름: 진한 primary + 흰 굵은 글씨 + 체크 */
+/** 선택 카드 — 안 고름: 흰 면(테두리 없음) / 고름: 연한 파랑 면 + 파랑 테두리선 + 굵은 글씨 + 체크 */
 function ChoiceCard({
   selected,
   focusable,
@@ -85,18 +85,19 @@ function ChoiceCard({
       tabIndex={focusable ? 0 : -1}
       onClick={onPick}
       className={cx(
-        'flex w-full items-center gap-3 rounded-m3-lg border-2 px-5 text-left transition-colors duration-150 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-primary',
-        selected ? 'border-primary bg-primary font-bold text-on-primary' : 'border-outline bg-surface text-on-surface hover:bg-surface-container',
+        'relative grid w-full place-items-center rounded-m3-lg px-3 text-center transition-[background-color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+        selected
+          ? 'bg-secondary-container font-semibold text-on-secondary-container shadow-[0_0_0_2px_var(--md-sys-color-secondary)]'
+          : 'bg-surface text-on-surface hover:bg-surface-container',
         className,
       )}
     >
-      <span className="min-w-0 flex-1">{children}</span>
-      <span
-        aria-hidden
-        className={cx('grid size-7 shrink-0 place-items-center rounded-full', selected ? 'bg-on-primary text-primary' : 'border-2 border-outline-variant')}
-      >
-        {selected && <Icon name="check" size={20} />}
-      </span>
+      {selected && (
+        <span aria-hidden className="absolute right-2 top-2 grid size-5 place-items-center rounded-full bg-secondary text-on-secondary">
+          <Icon name="check" size={14} />
+        </span>
+      )}
+      <span className="min-w-0">{children}</span>
     </button>
   );
 }
@@ -131,10 +132,10 @@ type AnswerUpdate = SurveyAnswer | ((prev: SurveyAnswer | undefined) => SurveyAn
 function QuestionInput({ q, value, answers, onChange }: { q: SurveyQ; value: SurveyAnswer | undefined; answers: PieceAnswers; onChange: (v: AnswerUpdate) => void }) {
   if (q.type === 'binary') {
     return (
-      <div className="grid auto-rows-fr gap-3 sm:grid-cols-2" role="radiogroup" aria-label={q.question} onKeyDown={(e) => onRadioKeys(e, (i) => onChange(i))}>
+      <div className="grid auto-rows-fr grid-cols-2 gap-3" role="radiogroup" aria-label={q.question} onKeyDown={(e) => onRadioKeys(e, (i) => onChange(i))}>
         {q.options.map((o, oi) => (
-          <ChoiceCard key={oi} selected={value === oi} focusable={value === undefined ? oi === 0 : value === oi} onPick={() => onChange(oi)} className="min-h-24 py-5 sm:min-h-32">
-            <span className="block title-large">{o.answer}</span>
+          <ChoiceCard key={oi} selected={value === oi} focusable={value === undefined ? oi === 0 : value === oi} onPick={() => onChange(oi)} className="min-h-24 px-4 py-5 sm:min-h-28">
+            <span className="block title-medium text-balance [word-break:keep-all]">{o.answer}</span>
           </ChoiceCard>
         ))}
       </div>
@@ -142,7 +143,7 @@ function QuestionInput({ q, value, answers, onChange }: { q: SurveyQ; value: Sur
   }
   if (q.type === 'single') {
     return (
-      <div className="space-y-3" role="radiogroup" aria-label={q.question} onKeyDown={(e) => onRadioKeys(e, (i) => onChange(i))}>
+      <div className="grid auto-rows-fr gap-3 sm:grid-cols-2" role="radiogroup" aria-label={q.question} onKeyDown={(e) => onRadioKeys(e, (i) => onChange(i))}>
         {q.options.map((o, oi) => (
           <ChoiceCard key={oi} selected={value === oi} focusable={value === undefined ? oi === 0 : value === oi} onPick={() => onChange(oi)} className="py-4">
             <span className="block title-medium">{o.label}</span>
@@ -156,10 +157,10 @@ function QuestionInput({ q, value, answers, onChange }: { q: SurveyQ; value: Sur
     // 문항에 low/high 문구가 있으면 1번·5번 카드에 그 문구
     const words = [q.low || SCALE_WORDS[0], SCALE_WORDS[1], SCALE_WORDS[2], SCALE_WORDS[3], q.high || SCALE_WORDS[4]];
     return (
-      <div className="space-y-2" role="radiogroup" aria-label={q.question} onKeyDown={(e) => onRadioKeys(e, (i) => onChange(i + 1))}>
+      <div className="grid auto-rows-fr grid-cols-5 gap-1.5 sm:gap-2" role="radiogroup" aria-label={q.question} onKeyDown={(e) => onRadioKeys(e, (i) => onChange(i + 1))}>
         {words.map((w, i) => (
-          <ChoiceCard key={i} selected={value === i + 1} focusable={value === undefined ? i === 0 : value === i + 1} onPick={() => onChange(i + 1)} className="min-h-12 py-2.5">
-            <span className="block title-medium">{w}</span>
+          <ChoiceCard key={i} selected={value === i + 1} focusable={value === undefined ? i === 0 : value === i + 1} onPick={() => onChange(i + 1)} className="min-h-16 px-1 py-3">
+            <span className="block label-large text-balance [word-break:keep-all]">{w}</span>
           </ChoiceCard>
         ))}
       </div>
@@ -302,9 +303,8 @@ function SectionScreen({
           </section>
         ))}
       </main>
-      <div ref={footerRef} className="sticky bottom-0 border-t border-outline-variant bg-surface/95 backdrop-blur">
+      <div ref={footerRef} className="sticky bottom-0 bg-surface/95 shadow-[0_-1px_0_var(--md-sys-color-surface-container-high)] backdrop-blur">
         <div className="mx-auto flex w-full max-w-xl items-center gap-4 px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))]">
-          <PuzzlePiece mode="fun" edges={edgesFromAnswers(answers)} size={44} />
           <div className="min-w-0 flex-1">
             <SectionSteps step={step} />
           </div>

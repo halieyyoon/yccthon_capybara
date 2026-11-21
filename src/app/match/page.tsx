@@ -218,9 +218,9 @@ function TeamOverview({ team, userId, codes, onOpenPair }: { team: TeamCandidate
           return (
             <li key={member.id}>
               {isMe ? (
-                <div className={cx(tile, 'border border-outline-variant bg-secondary-container')}>{body}</div>
+                <div className={cx(tile, 'bg-secondary-container')}>{body}</div>
               ) : (
-                <button type="button" onClick={() => onOpenPair(member.id)} aria-label={`${member.nickname}와 우리 둘이 맞는 방식 보기`} className={cx(tile, 'state-layer w-full border border-outline bg-surface text-left hover:bg-surface-container')}>
+                <button type="button" onClick={() => onOpenPair(member.id)} aria-label={`${member.nickname}와 우리 둘이 맞는 방식 보기`} className={cx(tile, 'state-layer w-full bg-surface text-left hover:bg-surface-container')}>
                   {body}
                 </button>
               )}
@@ -230,7 +230,7 @@ function TeamOverview({ team, userId, codes, onOpenPair }: { team: TeamCandidate
       </ul>
 
       <div>
-        <section className="min-w-0 rounded-m3-md border border-outline-variant bg-surface p-4">
+        <section className="min-w-0 rounded-m3-md bg-surface p-4">
           <h3 className="title-small">추천 이유</h3>
           {/* 한 줄 이유 — 구체적인 보완 관계가 있으면 그것, 없으면 근거 태그 */}
           <p className="mt-1 body-medium text-on-surface">
