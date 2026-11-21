@@ -140,7 +140,7 @@ export default function TeamPage() {
         </div>
 
         <div className="mt-10 flex justify-center">
-          <TeamPuzzleMerge members={members} pairs={team.puzzlePairs} merged={merged} showPairs={false} size={150} />
+          <TeamPuzzleMerge members={members} pairs={team.puzzlePairs} merged={merged} showPairs={false} size={190} />
         </div>
 
         <ul className="mt-12 grid gap-3 sm:grid-cols-2">

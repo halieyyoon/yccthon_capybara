@@ -256,7 +256,7 @@ export default function PilotPage() {
         </section>
 
         <aside className="space-y-4">
-          <div className="rounded-m3-xl bg-surface-container p-5">
+          <div className="rounded-m3-xl border border-outline-variant bg-surface p-5">
             <div className="flex items-center justify-between">
               <h2 className="title-medium">1페이지 공유 메모</h2>
               <span className="label-small text-on-surface-variant">모두가 같이 봐요</span>
