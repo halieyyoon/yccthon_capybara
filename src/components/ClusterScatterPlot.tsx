@@ -31,11 +31,11 @@ export function ClusterScatterPlot({ points, onSelectPoint }: { points: Clustere
       <div className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-1 gap-y-1.5">
         <div className="relative self-stretch">
           <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90 whitespace-nowrap label-medium text-on-surface-variant">
-            투영축 2
+            ↕ 응답 차이
           </span>
         </div>
         <div className="relative aspect-[16/10] w-full overflow-hidden rounded-m3-lg bg-surface-container-low">
-          <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 size-full" role="img" aria-label="응답 유사도 산점도, 가로 투영축 1과 세로 투영축 2">
+          <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 size-full" role="img" aria-label="비슷한 사람들끼리 모아 본 그림. 가까울수록 응답이 비슷해요">
             {[-50, 0, 50].map((v) => (
               <g key={v} stroke="var(--md-sys-color-outline-variant)" strokeWidth={1} strokeDasharray={v === 0 ? undefined : '2 4'}>
                 <line x1={sx(v)} x2={sx(v)} y1={pad} y2={H - pad} />
@@ -89,23 +89,23 @@ export function ClusterScatterPlot({ points, onSelectPoint }: { points: Clustere
             >
               <b className="label-large">{hover.isCurrentUser ? `나 · ${hover.nickname}` : hover.nickname}</b>
               <div>
-                {hover.major} · {TEMPERATURE_BY_ID[hover.temperatureMode].temperature}° · {hover.collabType}
+                {hover.major} · {TEMPERATURE_BY_ID[hover.temperatureMode].temperature}°
               </div>
               <div>
-                그룹 {hover.clusterId + 1}
+                비슷한 무리 {hover.clusterId + 1}
                 {hover.missingCount > 0 ? ` · 미응답 ${hover.missingCount}` : ''}
               </div>
             </div>
           )}
         </div>
-        <span className="col-start-2 text-center label-medium text-on-surface-variant">투영축 1</span>
+        <span className="col-start-2 text-center label-medium text-on-surface-variant">↔ 응답 차이</span>
       </div>
       <figcaption className="mt-3 space-y-2">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 label-medium text-on-surface-variant">
           {counts.map((n, c) => (
             <span key={c} className="inline-flex items-center gap-1.5">
               <span className="size-2.5 rounded-full" style={{ background: CLUSTER_COLORS[c] }} />
-              그룹 {c + 1} · {n}
+              비슷한 무리 {c + 1} · {n}명
             </span>
           ))}
           <span className="inline-flex items-center gap-1.5">
@@ -116,10 +116,10 @@ export function ClusterScatterPlot({ points, onSelectPoint }: { points: Clustere
             추천
           </span>
           <InfoTip align="end">
-            27개 응답 항목의 차이(Gower)로 그룹(PAM)을 만들고, 그 차이를 지도에 배치(MDS)했어요. 흐린 점선 점은 성격·갈등 미응답을 뜻해요.
+            응답 27개가 얼마나 다른지 계산해 비슷한 사람끼리 묶고(Gower·PAM), 지도처럼 펼쳤어요(MDS). 흐린 점선 점은 성격·갈등 질문에 답하지 않은 사람이에요.
           </InfoTip>
         </div>
-        <p className="body-small text-on-surface-variant">응답 간 차이를 두 좌표로 요약했어요. 점 사이 거리는 참고용이며, 팀 추천은 별도 지표로 계산해요. 합성 후보 100명으로 시연 중이에요.</p>
+        <p className="body-small text-on-surface-variant">가까이 있을수록 응답이 비슷한 사람이에요. 팀 추천은 이 그림이 아니라 따로 정한 기준으로 해요. 시연용 가상 후보 100명이에요.</p>
       </figcaption>
     </figure>
   );

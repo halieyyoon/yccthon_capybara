@@ -92,7 +92,7 @@ export function AppShell({
 
       <div
         className={cx(
-          'flex min-h-dvh min-w-0 flex-1 flex-col bg-surface pb-24 min-[720px]:min-h-0 min-[720px]:pb-0',
+          'flex min-h-dvh min-w-0 flex-1 flex-col overflow-x-clip bg-surface pb-24 min-[720px]:min-h-0 min-[720px]:pb-0',
           !hideNav && 'min-[720px]:mt-3 min-[720px]:min-h-[calc(100dvh-12px)] min-[720px]:rounded-tl-[26px] min-[720px]:bg-surface',
           hideNav && 'bg-surface',
         )}

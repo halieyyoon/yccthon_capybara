@@ -18,16 +18,29 @@ import { PIECE_TYPES, type PieceCode, derivePieceCode, edgesFromCode } from '@/s
  * 2×2 배치. 다른 화면(내 조각 결과·팀 드롭)과 같은 모양이 되도록 각자의 16유형 조각을 온전한 모양 그대로 그립니다.
  * (예전처럼 바깥 변을 평평하게 깎아 한 장의 사각형으로 만들지 않음)
  */
+/** 좁은 자리: 이름 + 별명(title)은 항상, 누르면 한 줄 설명(line) */
+function PieceLabel({ code, me }: { code: PieceCode; me: boolean }) {
+  const [open, setOpen] = useState(false);
+  const t = PIECE_TYPES[code];
+  return (
+    <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="max-w-[10rem] rounded-m3-sm px-1 text-center hover:bg-surface-container">
+      <span className="block title-small text-on-surface">
+        {t.name}
+        {me && <span className="ml-1 text-primary">나</span>}
+      </span>
+      <span className="block label-medium text-on-surface">{t.title}</span>
+      {open && <span className="block body-small text-on-surface-variant">{t.line}</span>}
+    </button>
+  );
+}
+
 function Pieces({ team, codes, merged, size }: { team: TeamCandidate; codes: PieceCode[]; merged: boolean; size: number }) {
   return (
     <div className="mx-auto grid w-max grid-cols-2 transition-[gap] duration-700 ease-m3" style={{ gap: merged ? 4 : 28 }}>
       {team.members.slice(0, 4).map((m, i) => (
         <div key={m.id} className="flex flex-col items-center">
           <PuzzlePiece mode={m.temperatureMode} edges={edgesFromCode(codes[i])} size={size} highlight={i === 0} />
-          <p className="title-small text-on-surface">
-            {PIECE_TYPES[codes[i]].name}
-            {i === 0 && <span className="ml-1 text-primary">나</span>}
-          </p>
+          <PieceLabel code={codes[i]} me={i === 0} />
           <p className="max-w-[9rem] truncate label-small text-on-surface-variant">{m.nickname}</p>
         </div>
       ))}
@@ -56,7 +69,7 @@ export function TeamPuzzleMerge({ team, unlocked, pieceCodes }: { team: TeamCand
             {t}
           </span>
         ))}
-        <InfoTip align="start">응답 근거 태그예요. 군집 이름 대신, 실제로 비슷하거나 서로 채워 주는 응답을 보여 줘요.</InfoTip>
+        <InfoTip align="start">응답 근거 태그예요. 무리 이름 대신, 실제로 비슷하거나 서로 채워 주는 응답을 보여 줘요.</InfoTip>
       </div>
 
       <div className="flex items-start gap-3 rounded-m3-md bg-surface p-4 text-on-surface">
@@ -98,7 +111,7 @@ export function TeamPuzzleMerge({ team, unlocked, pieceCodes }: { team: TeamCand
         <div>
           <p className="flex items-center gap-1 label-medium text-on-surface-variant">
             응답이 맞는 항목
-            <InfoTip align="start">목표·AI·협업은 4명의 응답 차이가 1점 이하인 문항 수, 역량은 필요한 역할을 능숙한 팀원이 채운 수예요. 정확도나 궁합 확률이 아니에요. 지표별 근거는 ‘왜 이 조합인가요?’에서 펼쳐 볼 수 있어요.</InfoTip>
+            <InfoTip align="start">목표·AI·협업은 4명의 응답 차이가 1점 이하인 문항 수, 역량은 필요한 역할을 능숙한 팀원이 채운 수예요. 잘 맞을 가능성을 점수로 매긴 게 아니에요. 지표별 근거는 ‘왜 이 조합인가요?’에서 펼쳐 볼 수 있어요.</InfoTip>
           </p>
           <p className="tabular display-small text-on-surface">
             {team.explanations.reduce((n, e) => n + e.okCount, 0)}

@@ -121,13 +121,15 @@ function PairCompatView({ me, them, myCode, theirCode, onContinue }: { me: UserP
   return (
     <div>
       <div className="rounded-m3-xl bg-surface-container-low px-4 py-5 text-center">
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex items-start justify-center gap-3">
           <div className="flex flex-col items-center">
             <PuzzlePiece mode={me.temperatureMode} edges={edgesFromCode(myCode)} size={104} />
             <p className="title-small text-on-surface">{myName} (나)</p>
+            <p className="label-medium text-on-surface">{PIECE_TYPES[myCode].title}</p>
+            <p className="max-w-36 body-small text-on-surface-variant">{PIECE_TYPES[myCode].line}</p>
           </div>
           <span
-            className={cx('grid size-10 shrink-0 place-items-center rounded-full title-medium', r.count >= 2 ? 'bg-primary-container text-on-primary-container' : 'bg-secondary-container text-on-secondary-container')}
+            className={cx('mt-8 grid size-10 shrink-0 place-items-center rounded-full title-medium', r.count >= 2 ? 'bg-primary-container text-on-primary-container' : 'bg-secondary-container text-on-secondary-container')}
             aria-label={r.count >= 2 ? `${r.count}변 맞물림` : `${4 - r.count}변 포개짐`}
           >
             {r.count >= 2 ? '◆' : '○'}
@@ -135,6 +137,8 @@ function PairCompatView({ me, them, myCode, theirCode, onContinue }: { me: UserP
           <div className="flex flex-col items-center">
             <PuzzlePiece mode={them.temperatureMode} edges={edgesFromCode(theirCode)} size={104} />
             <p className="title-small text-on-surface">{theirName}</p>
+            <p className="label-medium text-on-surface">{PIECE_TYPES[theirCode].title}</p>
+            <p className="max-w-36 body-small text-on-surface-variant">{PIECE_TYPES[theirCode].line}</p>
           </div>
         </div>
         <p className="mt-3 headline-small text-on-surface">{r.headline}</p>
@@ -182,7 +186,7 @@ function TeamOverview({ team, userId, codes, onOpenPair }: { team: TeamCandidate
             <span className="title-medium text-on-surface-variant">/{total}</span>
           </span>
           <span className="label-medium text-on-surface-variant">응답이 맞는 항목</span>
-          <InfoTip align="start">목표·AI·협업은 4명의 응답 차이가 1점 이하인 문항 수, 역량은 필요한 역할을 능숙한 팀원이 채운 수예요. 정확도나 궁합 확률이 아니에요. 자세한 근거는 아래 ‘팀원과 추천 근거 자세히 보기’에서 볼 수 있어요.</InfoTip>
+          <InfoTip align="start">목표·AI·협업은 4명의 응답 차이가 1점 이하인 문항 수, 역량은 필요한 역할을 능숙한 팀원이 채운 수예요. 잘 맞을 가능성을 점수로 매긴 게 아니에요. 자세한 근거는 아래 ‘왜 이 팀을 추천했나요?’에서 볼 수 있어요.</InfoTip>
         </p>
         <ul className="flex flex-wrap gap-1.5" aria-label="지표별 개수">
           {team.explanations.map((e) => (
@@ -192,10 +196,7 @@ function TeamOverview({ team, userId, codes, onOpenPair }: { team: TeamCandidate
           ))}
         </ul>
       </div>
-      <p className="mb-2! flex items-center gap-1 label-medium text-on-surface-variant">
-        추천 팀원
-        <InfoTip align="start">팀원을 누르면 우리 둘이 어떻게 맞물리는지 볼 수 있어요.</InfoTip>
-      </p>
+      <p className="mb-2! label-large text-on-surface">팀원 4명 <span className="text-on-surface-variant">· 누르면 우리 둘이 맞는 방식이 보여요</span></p>
       <ul aria-label="추천 팀원" className="grid grid-cols-2 gap-2 @xl:grid-cols-4">
         {team.members.map((member) => {
           const isMe = member.id === userId;
@@ -207,8 +208,8 @@ function TeamOverview({ team, userId, codes, onOpenPair }: { team: TeamCandidate
               </div>
               <div className="min-w-0">
                 <p className="title-small [overflow-wrap:anywhere]">{isMe ? '나' : member.nickname}</p>
-                <p className="mt-0.5 body-small text-on-surface-variant">
-                  {PIECE_TYPES[codes[idx]].name} · {TEMPERATURE_BY_ID[member.temperatureMode].temperature}°
+                <p className="mt-0.5 label-large text-on-surface">
+                  {PIECE_TYPES[codes[idx]].name} <span className="font-normal text-on-surface-variant">· {PIECE_TYPES[codes[idx]].title}</span>
                 </p>
               </div>
             </>
@@ -217,9 +218,9 @@ function TeamOverview({ team, userId, codes, onOpenPair }: { team: TeamCandidate
           return (
             <li key={member.id}>
               {isMe ? (
-                <div className={cx(tile, 'bg-secondary-container')}>{body}</div>
+                <div className={cx(tile, 'border border-outline-variant bg-secondary-container')}>{body}</div>
               ) : (
-                <button type="button" onClick={() => onOpenPair(member.id)} aria-label={`${member.nickname}와 우리 둘 궁합 보기`} className={cx(tile, 'state-layer w-full bg-surface text-left hover:bg-surface-container')}>
+                <button type="button" onClick={() => onOpenPair(member.id)} aria-label={`${member.nickname}와 우리 둘이 맞는 방식 보기`} className={cx(tile, 'state-layer w-full border border-outline bg-surface text-left hover:bg-surface-container')}>
                   {body}
                 </button>
               )}
@@ -228,25 +229,22 @@ function TeamOverview({ team, userId, codes, onOpenPair }: { team: TeamCandidate
         })}
       </ul>
 
-      <div className="grid gap-3 @xl:grid-cols-2">
-        <section className="min-w-0 rounded-m3-md bg-surface p-4">
+      <div>
+        <section className="min-w-0 rounded-m3-md border border-outline-variant bg-surface p-4">
           <h3 className="title-small">추천 이유</h3>
-          {reasons.length > 0 && (
-            <p className="mt-1 body-medium text-on-surface-variant">{reasons.join(' · ')}</p>
-          )}
-          {example && (
-            <p className="mt-2 body-small text-on-surface">
-              <span className="font-semibold">{example.coveredByNickname}</span>의 {SKILL_CARD_BY_ID[example.strengthId].strength} 역량이{' '}
-              <span className="font-semibold">{example.weaknessOwnerId === userId ? '내' : `${example.weaknessOwnerNickname}의`}</span> 약점을 보완해요.
-            </p>
-          )}
-          {reasons.length === 0 && !example && (
-            <p className="mt-1 body-medium text-on-surface-variant">응답을 바탕으로 추천한 팀이에요.</p>
-          )}
-        </section>
-        <section className="min-w-0 rounded-m3-md bg-surface p-4 text-on-surface">
-          <h3 className="flex items-center gap-2 title-small"><Icon name="forum" size={17} className="text-tertiary" />먼저 이야기할 점</h3>
-          <p className="mt-1 body-medium text-on-surface-variant">{team.biggestGapNote}</p>
+          {/* 한 줄 이유 — 구체적인 보완 관계가 있으면 그것, 없으면 근거 태그 */}
+          <p className="mt-1 body-medium text-on-surface">
+            {example ? (
+              <>
+                <span className="font-semibold">{example.coveredByNickname}</span>의 {SKILL_CARD_BY_ID[example.strengthId].strength} 역량이{' '}
+                <span className="font-semibold">{example.weaknessOwnerId === userId ? '내' : `${example.weaknessOwnerNickname}의`}</span> 약점을 채워 줘요.
+              </>
+            ) : reasons.length > 0 ? (
+              reasons.join(' · ')
+            ) : (
+              '응답을 바탕으로 추천한 팀이에요.'
+            )}
+          </p>
         </section>
       </div>
     </div>
@@ -403,7 +401,7 @@ export default function MatchPage() {
                             unlockTeam(team.id);
                           }}
                         >
-                          바로 만나볼래요
+                          만나볼래요
                         </Button>
                         <Button variant="outlined" icon="timer" onClick={() => router.push(`/pilot/${team.id}`)}>
                           20분 파일럿
@@ -420,7 +418,7 @@ export default function MatchPage() {
                 )}
               </div>
               {team && team.status !== 'EXPIRED' && (
-                <MatchDetails label="팀원과 추천 근거 자세히 보기">
+                <MatchDetails label="왜 이 팀을 추천했나요?">
                   <div className="@container space-y-5">
                     <TeamPuzzleMerge team={team} pieceCodes={codes} />
                     <MetricEvidence team={team} />
@@ -436,7 +434,7 @@ export default function MatchPage() {
                                 {i === 0 && <span className="ml-1 text-primary">· 나</span>}
                               </p>
                               <p className="body-small text-on-surface-variant">
-                                {m.cv.major} · <span className="tabular">{TEMPERATURE_BY_ID[m.temperatureMode].temperature}°</span> · {m.collabType}
+                                {m.cv.major} · <span className="tabular">{TEMPERATURE_BY_ID[m.temperatureMode].temperature}°</span> · {PIECE_TYPES[codes[i]].name} · {PIECE_TYPES[codes[i]].title}
                               </p>
                               <p className="mt-1 body-small text-on-surface">잘하는 것 · {m.strengths.map((s) => SKILL_CARD_BY_ID[s].strength).join(', ')}</p>
                             </div>
@@ -454,7 +452,7 @@ export default function MatchPage() {
                 </MatchDetails>
               )}
               {team && team.status !== 'EXPIRED' && (
-                <MatchDetails label="AI 모의회의 보기">
+                <MatchDetails label="AI가 미리 해 본 첫 회의 보기">
                   {(meetings[team.id] || avatarLoading[team.id]) ? (
                     <AvatarMeetingCard result={meetings[team.id]} loading={avatarLoading[team.id]} loadingStepText="팀 응답으로 가상 회의를 만드는 중" />
                   ) : (
@@ -464,7 +462,7 @@ export default function MatchPage() {
                   )}
                 </MatchDetails>
               )}
-              <MatchDetails label="전체 후보 분포 보기">
+              <MatchDetails label="비슷한 사람들끼리 모아 본 그림">
                 <p className="mb-3 body-small text-on-surface-variant">파란 테두리는 지금 보고 있는 추천 팀원이에요.</p>
                 <ClusterScatterPlot points={selectedTeamPoints} />
               </MatchDetails>
@@ -473,7 +471,7 @@ export default function MatchPage() {
         </div>
       </div>
 
-      <Dialog open={!!pairMember && !!team} onClose={() => setPairId(null)} title="우리 둘 궁합" wide>
+      <Dialog open={!!pairMember && !!team} onClose={() => setPairId(null)} title="우리 둘이 맞는 방식" wide>
         {pairMember && team && (
           <PairCompatView
             me={user}

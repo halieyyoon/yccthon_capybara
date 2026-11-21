@@ -84,7 +84,7 @@ function TeamDropView({
           {team.explanations.reduce((n, e) => n + e.okCount, 0)}/{team.explanations.reduce((n, e) => n + e.total, 0)}
         </span>
         <span className="body-medium text-on-surface-variant">항목에서 응답이 맞음 · 가장 잘 맞는 2 + 2 모양</span>
-        <InfoTip align="end">목표·AI·협업 문항 중 4명의 응답 차이가 1점 이하인 수와, 대회에 필요한 역할을 채운 수를 더한 값이에요. 정확도나 궁합 확률이 아니에요. ◆는 맞물리는 변, ○는 포개지는 변이에요.</InfoTip>
+        <InfoTip align="end">목표·AI·협업 문항 중 4명의 응답 차이가 1점 이하인 수와, 대회에 필요한 역할을 채운 수를 더한 값이에요. 잘 맞을 가능성을 점수로 매긴 게 아니에요. ◆는 맞물리는 변, ○는 포개지는 변이에요.</InfoTip>
       </p>
       <p className="mt-3 rounded-m3-md bg-surface-container-low p-4 body-medium text-on-surface">{layout.note}</p>
 
@@ -181,12 +181,11 @@ export default function ProfilePage() {
               <PuzzlePiece mode={user.temperatureMode} edges={edgesFromCode(myPiece)} size={64} />
               <div className="min-w-0 flex-1">
                 <p className="label-small text-on-surface-variant">내 조각</p>
-                <p className="title-large">{PIECE_TYPES[myPiece].name}</p>
-                <p className="truncate body-small text-on-surface-variant">
-                  {quadrantOf(myPiece)} · {myPiece} {PIECE_TYPES[myPiece].title}
+                <p className="title-large">
+                  {PIECE_TYPES[myPiece].name} <span className="title-medium text-on-surface-variant">· {PIECE_TYPES[myPiece].title}</span>
                 </p>
+                <p className="body-medium text-on-surface">{PIECE_TYPES[myPiece].line}</p>
               </div>
-              <InfoTip align="end">딱 맞물리는 짝은 {PIECE_TYPES[perfectMatch(myPiece)].name}이에요. 설문 답으로 정한 협업 성향 조각이에요(심리검사 아님).</InfoTip>
             </Card>
           )}
           <Card className="space-y-1 p-1">
@@ -194,7 +193,6 @@ export default function ProfilePage() {
               <Ring value={answered} max={27} label="퍼즐 응답" />
               <p className="flex min-w-0 flex-1 items-center gap-1 title-medium">
                 퍼즐 {answered}/27
-                <InfoTip align="start">고치기를 누르면 설문(A1~F4)을 지난 답이 채워진 채로 다시 열어요. 다시 답해도 CV와 닉네임은 그대로예요.</InfoTip>
               </p>
               <Button variant={answered < 27 ? 'tonal' : 'text'} onClick={() => router.push('/onboarding')}>
                 {answered < 27 ? '채우기' : '고치기'}
@@ -204,7 +202,6 @@ export default function ProfilePage() {
               <Ring value={cvDone} max={5} label="CV 섹션" />
               <p className="flex min-w-0 flex-1 items-center gap-1 title-medium">
                 CV {cvDone}/5
-                <InfoTip align="start">팀이 확정되고 서로 수락하면 팀원에게 열려요.</InfoTip>
               </p>
               <Icon name="chevron_right" className="text-on-surface-variant" />
             </Link>
@@ -227,8 +224,7 @@ export default function ProfilePage() {
             <div className="flex items-center gap-3">
               <Icon name="event_upcoming" className="text-primary" />
               <p className="flex flex-1 items-center gap-1 title-medium">
-                Weekly Drop
-                <InfoTip align="start">매주 금요일 밤 10시, 이번 주에 맞물리는 팀 후보를 한 번에 알려 드려요.</InfoTip>
+                매주 금요일 밤 팀 후보 알림
               </p>
               <Switch
                 checked={user.weeklyDropEnabled}
@@ -251,8 +247,7 @@ export default function ProfilePage() {
 
           <div className="flex flex-wrap items-center gap-2 px-1">
             <span className="flex items-center gap-1 label-medium text-on-surface-variant">
-              협업 지뢰
-              <InfoTip align="start">상대에게는 보이지 않아요.</InfoTip>
+              이것만은 힘들어요 <span className="text-on-surface-variant">(나만 보여요)</span>
             </span>
             {user.dealBreakers.map((d) => (
               <span key={d} className="rounded-m3-sm bg-error-container px-2.5 py-1 label-medium text-on-error-container">

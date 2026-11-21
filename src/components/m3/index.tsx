@@ -2,7 +2,7 @@
 
 // [임시 구현 · 규혁 브랜치] 소유: 연서 (src/components/)
 // 기본 컴포넌트 — Google Classroom 기반 Material Design 3, stt.gyuhyeok.com(E:UM) 규칙을 따른다.
-// 주요 버튼 = 연한 파랑 바탕 + 진한 파랑 글자(화면마다 1개) · 보조 = 테두리 · 텍스트 = 파랑 글자
+// 주요 버튼 = 진한 primary 바탕 + 흰 굵은 글자(화면마다 1개) · 보조 = 테두리 · 텍스트 = 파랑 글자
 // 카드 12 / 패널 16 / 버튼·칩 알약 · 세그먼트·탭 = 연한 알약 안 흰 칩 · 대화상자 22 · 그림자는 떠 있는 것에만
 
 import Link from 'next/link';
@@ -37,12 +37,12 @@ type ButtonVariant = 'prominent' | 'filled' | 'tonal' | 'outlined' | 'text' | 'e
 
 const buttonStyles: Record<ButtonVariant, string> = {
   prominent: 'bg-primary text-on-primary hover:brightness-95',
-  // 주요: 연한 파랑 + 진한 파랑 글자
-  filled: 'bg-primary-container text-on-primary-container hover:bg-[#a8d7fa] dark:hover:bg-[#0b5a8f]',
+  // 주요: 진한 primary + 흰 굵은 글자 (화면마다 하나)
+  filled: 'bg-primary text-on-primary font-bold hover:brightness-110',
   // 보조 강조: 연한 파랑 면
   tonal: 'bg-secondary-container text-on-secondary-container hover:brightness-95',
-  // 보조: 테두리 없이 연한 회색 면 (테두리 지양)
-  outlined: 'bg-surface-container text-on-surface hover:bg-surface-container-highest',
+  // 보조: 흰 바탕 + 테두리
+  outlined: 'border border-outline bg-surface text-primary hover:bg-secondary-container',
   // 텍스트: 파랑 글자
   text: 'text-secondary hover:bg-secondary-container px-3',
   elevated: 'bg-surface text-on-surface shadow-[0_1px_3px_rgba(32,33,36,.14)] hover:bg-surface-container',
@@ -181,7 +181,7 @@ export function Chip({
       aria-pressed={kind === 'filter' ? !!selected : undefined}
       className={cx(
         'inline-flex min-h-9 items-center gap-1.5 rounded-full px-4 label-large transition-colors duration-200 disabled:opacity-40 pointer-coarse:min-h-11',
-        selected ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container text-on-surface hover:bg-surface-container-highest',
+        selected ? 'border border-primary bg-primary font-bold text-on-primary' : 'border border-outline bg-surface text-on-surface hover:bg-surface-container',
         (selected || icon) && 'pl-3',
       )}
     >
@@ -206,7 +206,7 @@ export function SegmentedButton<T extends string | number>({
   dense?: boolean;
 }) {
   return (
-    <div role="radiogroup" aria-label={ariaLabel} className="flex w-full gap-1 rounded-full bg-surface-container p-1">
+    <div role="radiogroup" aria-label={ariaLabel} className="flex w-full gap-1 rounded-full border border-outline bg-surface p-1">
       {options.map((o) => {
         const sel = o.value === value;
         return (
@@ -219,7 +219,7 @@ export function SegmentedButton<T extends string | number>({
             className={cx(
               'flex min-h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-full label-large transition-[background-color,color,box-shadow] duration-200 pointer-coarse:min-h-11',
               dense ? 'px-1' : 'px-3',
-              sel ? 'bg-surface text-secondary shadow-[0_1px_2px_rgba(32,33,36,.14)]' : 'text-on-surface-variant hover:text-on-surface',
+              sel ? 'bg-primary font-bold text-on-primary' : 'text-on-surface hover:bg-surface-container-highest',
             )}
           >
             {o.icon && <Icon name={o.icon} size={18} />}

@@ -8,7 +8,7 @@
 // 끝나면 CV 작성으로 이어짐(프로필 = 퍼즐 + CV, 05 workflow) — CV는 건너뛸 수 있음.
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FEATURE_SCHEMA_VERSION,
   type DealBreakerId,
@@ -34,7 +34,7 @@ import {
 } from '@/data/constants';
 import { basisText } from '@/data/references';
 import { basisOf, feedsOf } from '@/data/surveyBasis';
-import { Button, Chip, cx, Icon, IconButton, InfoTip, LinearProgress, SegmentedButton, Switch, TextField } from '@/components/m3';
+import { Button, Chip, cx, Icon, IconButton, InfoTip, SegmentedButton } from '@/components/m3';
 import { PuzzlePiece } from '@/components/PuzzlePiece';
 import { useHydrated, useOndoStore } from '@/store/useOndoStore';
 import {
@@ -63,37 +63,105 @@ import {
 
 
 
-const optionCls = (sel: boolean) =>
-  cx(
-    'w-full rounded-m3-lg px-5 py-4 text-left transition-[background-color,box-shadow] duration-200',
-    sel ? 'bg-secondary-container text-on-secondary-container shadow-[0_0_0_2px_var(--md-sys-color-secondary)]' : 'bg-surface hover:bg-surface-container',
+/** 선택 카드 — 안 고름: 흰 바탕 + 진한 테두리 / 고름: 진한 primary + 흰 굵은 글씨 + 체크 */
+function ChoiceCard({
+  selected,
+  focusable,
+  onPick,
+  className,
+  children,
+}: {
+  selected: boolean;
+  focusable: boolean;
+  onPick: () => void;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      tabIndex={focusable ? 0 : -1}
+      onClick={onPick}
+      className={cx(
+        'flex w-full items-center gap-3 rounded-m3-lg border-2 px-5 text-left transition-colors duration-150 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-primary',
+        selected ? 'border-primary bg-primary font-bold text-on-primary' : 'border-outline bg-surface text-on-surface hover:bg-surface-container',
+        className,
+      )}
+    >
+      <span className="min-w-0 flex-1">{children}</span>
+      <span
+        aria-hidden
+        className={cx('grid size-7 shrink-0 place-items-center rounded-full', selected ? 'bg-on-primary text-primary' : 'border-2 border-outline-variant')}
+      >
+        {selected && <Icon name="check" size={20} />}
+      </span>
+    </button>
   );
+}
 
-/** 문항 형식별 입력 — 2지선다 · 5점 척도 · 하나 고르기 · 여러 개 고르기 · 역량 0~4 표 */
+/** 라디오 묶음 키보드: ←/→(↑/↓) 포커스 이동, 숫자키 1~5로 바로 고르기 */
+function onRadioKeys(e: KeyboardEvent<HTMLDivElement>, pick: (i: number) => void) {
+  const radios = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]'));
+  const n = radios.length;
+  const i = radios.indexOf(document.activeElement as HTMLButtonElement);
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    radios[(i + 1 + n) % n]?.focus();
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    radios[(i - 1 + n) % n]?.focus();
+  } else if (/^[1-9]$/.test(e.key) && Number(e.key) <= n) {
+    e.preventDefault();
+    const k = Number(e.key) - 1;
+    radios[k]?.focus();
+    pick(k);
+  }
+}
+
+const SCALE_WORDS = ['전혀 아니야', '아닌 편', '반반', '그런 편', '완전 그래'];
+
+/** 한 번 탭으로 끝나는 형식(이지선다 · 하나 고르기 · 1~5점) */
+const isOneTap = (q: SurveyQ) => q.type === 'binary' || q.type === 'single' || q.type === 'scale';
+
+/** 문항 형식별 입력 — 이지선다(O/X 카드 2장) · 1~5점(말로 쓴 카드 5장) · 하나 고르기 · 여러 개 고르기 · 역량표 */
 type AnswerUpdate = SurveyAnswer | ((prev: SurveyAnswer | undefined) => SurveyAnswer);
 
 function QuestionInput({ q, value, answers, onChange }: { q: SurveyQ; value: SurveyAnswer | undefined; answers: PieceAnswers; onChange: (v: AnswerUpdate) => void }) {
-  if (q.type === 'binary' || q.type === 'single') {
-    const opts = q.type === 'binary' ? q.options.map((o) => ({ label: o.answer, detail: undefined as string | undefined })) : q.options;
+  if (q.type === 'binary') {
     return (
-      <div className="space-y-3" role="radiogroup" aria-label={q.question}>
-        {opts.map((o, oi) => (
-          <button key={oi} type="button" role="radio" aria-checked={value === oi} onClick={() => onChange(oi)} className={optionCls(value === oi)}>
+      <div className="grid auto-rows-fr gap-3 sm:grid-cols-2" role="radiogroup" aria-label={q.question} onKeyDown={(e) => onRadioKeys(e, (i) => onChange(i))}>
+        {q.options.map((o, oi) => (
+          <ChoiceCard key={oi} selected={value === oi} focusable={value === undefined ? oi === 0 : value === oi} onPick={() => onChange(oi)} className="min-h-24 py-5 sm:min-h-32">
+            <span className="block title-large">{o.answer}</span>
+          </ChoiceCard>
+        ))}
+      </div>
+    );
+  }
+  if (q.type === 'single') {
+    return (
+      <div className="space-y-3" role="radiogroup" aria-label={q.question} onKeyDown={(e) => onRadioKeys(e, (i) => onChange(i))}>
+        {q.options.map((o, oi) => (
+          <ChoiceCard key={oi} selected={value === oi} focusable={value === undefined ? oi === 0 : value === oi} onPick={() => onChange(oi)} className="py-4">
             <span className="block title-medium">{o.label}</span>
-            {o.detail && <span className="block body-small opacity-80">{o.detail}</span>}
-          </button>
+            {o.detail && <span className="block body-small opacity-90">{o.detail}</span>}
+          </ChoiceCard>
         ))}
       </div>
     );
   }
   if (q.type === 'scale') {
+    // 문항에 low/high 문구가 있으면 1번·5번 카드에 그 문구
+    const words = [q.low || SCALE_WORDS[0], SCALE_WORDS[1], SCALE_WORDS[2], SCALE_WORDS[3], q.high || SCALE_WORDS[4]];
     return (
-      <div>
-        <SegmentedButton ariaLabel={q.question} value={(value as number) ?? null} onChange={(v) => onChange(v)} options={[1, 2, 3, 4, 5].map((v) => ({ value: v, label: String(v) }))} />
-        <div className="mt-2 flex justify-between px-2 label-medium text-on-surface-variant">
-          <span>{q.low}</span>
-          <span>{q.high}</span>
-        </div>
+      <div className="space-y-2" role="radiogroup" aria-label={q.question} onKeyDown={(e) => onRadioKeys(e, (i) => onChange(i + 1))}>
+        {words.map((w, i) => (
+          <ChoiceCard key={i} selected={value === i + 1} focusable={value === undefined ? i === 0 : value === i + 1} onPick={() => onChange(i + 1)} className="min-h-12 py-2.5">
+            <span className="block title-medium">{w}</span>
+          </ChoiceCard>
+        ))}
       </div>
     );
   }
@@ -108,7 +176,7 @@ function QuestionInput({ q, value, answers, onChange }: { q: SurveyQ; value: Sur
     return (
       <div>
         <p className="mb-3 tabular label-large text-on-surface-variant">
-          {picked.length}/{q.max}
+          {picked.length}/{q.max} 골랐어요
         </p>
         <div className="flex flex-wrap gap-2">
           {q.options.map((o) => (
@@ -145,61 +213,106 @@ function QuestionInput({ q, value, answers, onChange }: { q: SurveyQ; value: Sur
   );
 }
 
-function PieceQuestionScreen({
-  index,
+/** 하단 진행 표시 — 섹션 6단계(A~F) */
+function SectionSteps({ step }: { step: number }) {
+  return (
+    <div aria-label={`${step + 1} / ${SURVEY_SECTIONS.length} 단계`}>
+      <div className="flex gap-1.5" aria-hidden>
+        {SURVEY_SECTIONS.map((s, i) => (
+          <span key={s.id} className={cx('h-1.5 flex-1 rounded-full', i <= step ? 'bg-primary' : 'bg-outline-variant')} />
+        ))}
+      </div>
+      <p className="mt-2 label-large text-on-surface">
+        <span className="tabular">
+          {step + 1} / {SURVEY_SECTIONS.length}
+        </span>{' '}
+        · {SURVEY_SECTIONS[step].title}
+      </p>
+    </div>
+  );
+}
+
+/** 한 페이지 = 섹션 하나(질문 3~6개). 한 번 탭 → 선택 표시 250ms → 다음 질문으로 이동 */
+function SectionScreen({
+  step,
   answers,
   onAnswer,
   onNext,
   onBack,
 }: {
-  index: number;
+  step: number;
   answers: PieceAnswers;
-  onAnswer: (v: AnswerUpdate) => void;
+  onAnswer: (id: string, v: AnswerUpdate) => void;
   onNext: () => void;
   onBack: () => void;
 }) {
-  const q = PIECE_SURVEY[index];
-  const value = answers[q.id];
-  const done = isAnswered(q, value);
-  const section = SURVEY_SECTIONS.find((x) => x.id === q.section)!;
-  const showPiece = q.type === 'binary' || (q.type === 'scale' && !!q.vote);
+  const section = SURVEY_SECTIONS[step];
+  const qs = useMemo(() => PIECE_SURVEY.filter((q) => q.section === section.id), [section.id]);
+  const last = step === SURVEY_SECTIONS.length - 1;
+  const allDone = qs.every((q) => isAnswered(q, answers[q.id]));
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
+  const timer = useRef<number | undefined>(undefined);
+  const footerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => () => window.clearTimeout(timer.current), [step]);
+
+  const goNextFrom = (qi: number) => {
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      const a = answersRef.current;
+      const next = qs.slice(qi + 1).find((q) => !isAnswered(q, a[q.id])) ?? qs.find((q) => !isAnswered(q, a[q.id]));
+      if (next) {
+        const el = document.getElementById(`q-${next.id}`);
+        // 포커스 먼저(스크롤 없이) → 부드럽게 스크롤 (순서가 반대면 스크롤이 끊김)
+        el?.querySelector<HTMLElement>('[role="radio"], button')?.focus({ preventScroll: true });
+        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else footerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, 250);
+  };
+
   return (
-    <div className="flex min-h-dvh flex-col bg-page">
-      <header className="mx-auto flex h-16 w-full max-w-xl items-center gap-3 px-4">
-        <IconButton icon="arrow_back" label={index === 0 ? '나가기' : '이전 질문'} onClick={onBack} />
-        <LinearProgress value={(index + (done ? 1 : 0)) / PIECE_SURVEY.length} className="flex-1" />
-        <span className="tabular label-large text-on-surface-variant">
-          {index + 1}/{PIECE_SURVEY.length}
-        </span>
+    <div className="flex min-h-dvh flex-col overflow-x-clip bg-page">
+      <header className="mx-auto flex h-16 w-full max-w-xl items-center gap-2 px-4">
+        <IconButton icon="arrow_back" label={step === 0 ? '나가기' : '이전 단계'} onClick={onBack} />
+        <h1 className="flex-1 headline-small">{section.title}</h1>
+        {/* 혜원 v1.1 근거: 문항별 ‘반영되는 곳’과 근거 — 페이지당 (i) 하나로 모음 */}
+        <InfoTip label="이 질문들의 근거" align="end">
+          {qs.map((q, qi) => (
+            <span key={q.id} className="mb-2 block last:mb-0">
+              {qi + 1}. 반영되는 곳: {feedsOf(q).join(' · ')}. {basisText(basisOf(q))}
+            </span>
+          ))}
+        </InfoTip>
       </header>
-      <main key={index} className="page-enter mx-auto flex w-full max-w-xl flex-1 flex-col px-4 pb-6">
-        <p className="mt-2 flex items-center gap-1 label-large text-primary">
-          <span className="tabular">{q.id}</span> · {section.title}
-          {/* 혜원 v1.1 근거: ‘반영되는 곳’과 문항 근거는 (i) 안에 */}
-          <InfoTip label="이 질문의 근거" align="start">
-            반영되는 곳: {feedsOf(q).join(' · ')}. {basisText(basisOf(q))}
-          </InfoTip>
-        </p>
-        <h1 className="mt-1 headline-medium">{q.question}</h1>
-
-        {showPiece && (
-          <div className="mt-6 grid place-items-center rounded-m3-xl bg-surface py-5">
-            <PuzzlePiece mode="fun" edges={edgesFromAnswers(answers)} size={150} />
-            <p className="mt-1 body-small text-on-surface-variant">답할수록 조각이 완성돼요</p>
+      <main key={step} className="page-enter mx-auto w-full max-w-xl flex-1 space-y-10 px-4 pb-8 pt-2">
+        {qs.map((q, qi) => (
+          <section key={q.id} id={`q-${q.id}`} className="scroll-mt-20">
+            <h2 className="title-large">{q.question}</h2>
+            <div className="mt-4">
+              <QuestionInput
+                q={q}
+                value={answers[q.id]}
+                answers={answers}
+                onChange={(v) => {
+                  onAnswer(q.id, v);
+                  if (isOneTap(q)) goNextFrom(qi);
+                }}
+              />
+            </div>
+          </section>
+        ))}
+      </main>
+      <div ref={footerRef} className="sticky bottom-0 border-t border-outline-variant bg-surface/95 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-xl items-center gap-4 px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+          <PuzzlePiece mode="fun" edges={edgesFromAnswers(answers)} size={44} />
+          <div className="min-w-0 flex-1">
+            <SectionSteps step={step} />
           </div>
-        )}
-
-        <div className="mt-5">
-          <QuestionInput q={q} value={value} answers={answers} onChange={onAnswer} />
-        </div>
-
-        <div className="mt-auto pt-8">
-          {showPiece && <p className="mb-3 text-center body-small text-on-surface-variant">정답은 없어요. 반대여도, 똑같아도 다 맞물려요.</p>}
-          <Button size="lg" className="w-full" disabled={!done} onClick={onNext}>
-            {index === PIECE_SURVEY.length - 1 ? '내 조각 보기' : '다음 질문'}
+          <Button size="lg" variant="filled" disabled={!allDone} onClick={onNext} trailingIcon={last ? undefined : 'arrow_forward'}>
+            {last ? '내 조각 보기' : '다음'}
           </Button>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
@@ -214,6 +327,8 @@ function MiniPiece({ code, caption, tone }: { code: PieceCode; caption: string; 
         {caption}
       </p>
       <p className="title-medium">{t.name}</p>
+      <p className="label-large text-on-surface">{t.title}</p>
+      <p className="mt-1 body-small text-on-surface-variant">{t.line}</p>
     </div>
   );
 }
@@ -223,7 +338,7 @@ function PieceResultScreen({ code, onContinue, onRetry, continueLabel = '이 조
   const match = perfectMatch(code);
   const [shared, setShared] = useState<string | null>(null);
   const share = async () => {
-    const text = `On-do에서 내 조각이 나왔어요: ${t.name} (${quadrantOf(code)} · ${code} ${t.title}) — ${t.line}`;
+    const text = `On-do에서 내 조각이 나왔어요: ${t.name} · ${t.title} — ${t.line}`;
     try {
       if (navigator.share) await navigator.share({ title: 'On-do 내 조각', text });
       else {
@@ -233,16 +348,15 @@ function PieceResultScreen({ code, onContinue, onRetry, continueLabel = '이 조
     } catch {}
   };
   return (
-    <div className="min-h-dvh bg-page">
+    <div className="min-h-dvh overflow-x-clip bg-page">
       <main className="page-enter mx-auto flex min-h-dvh w-full max-w-xl flex-col px-4 py-8">
         <p className="text-center title-medium text-primary">내 조각이 나왔어요!</p>
         <section className="mt-4 grid place-items-center rounded-m3-xl bg-surface px-5 py-8 text-center">
           <PuzzlePiece mode="fun" edges={edgesFromCode(code)} size={200} />
           <h1 className="mt-2 display-small">{t.name}</h1>
-          <p className="mt-2 rounded-full bg-surface-container px-4 py-1.5 label-large text-on-surface">
-            {quadrantOf(code)} · {code} {t.title}
-          </p>
-          <p className="mt-3 body-large text-on-surface-variant">{t.line}</p>
+          <p className="mt-1 title-large text-on-surface">{t.title}</p>
+          <p className="mt-2 body-large text-on-surface">“{t.line}”</p>
+          <p className="mt-4 rounded-m3-lg bg-surface-container px-4 py-2 body-medium text-on-surface">조각 이름은 일하는 스타일을 부르는 별명이에요. 16가지가 있어요.</p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
             {tagsOf(code).map((tag) => (
               <span key={tag} className="rounded-full bg-surface-container px-3 py-1 label-large text-on-surface">
@@ -256,7 +370,7 @@ function PieceResultScreen({ code, onContinue, onRetry, continueLabel = '이 조
           <MiniPiece code={code} caption="포개지는 쌍둥이" tone="twin" />
         </div>
         <p className="mt-2 flex items-center justify-center gap-1 body-small text-on-surface-variant">
-          {PIECE_TYPES[match].name}과는 네 변이 전부 반대라 딱 맞물려요
+          {PIECE_TYPES[match].name}({PIECE_TYPES[match].title})과는 서로 반대라 빈 곳을 채워 줘요
           <InfoTip>설문 답으로 정한 협업 성향 조각이에요(심리검사 아님). 팀 추천도 같은 답을 바탕으로 해요.</InfoTip>
         </p>
 
@@ -372,17 +486,12 @@ export default function OnboardingPage() {
 
   if (phase === 'piece') {
     return (
-      <PieceQuestionScreen
-        index={pieceStep}
+      <SectionScreen
+        step={pieceStep}
         answers={pieceAnswers}
-        onAnswer={(v) =>
-          setPieceAnswers((a) => {
-            const id = PIECE_SURVEY[pieceStep].id;
-            return { ...a, [id]: typeof v === 'function' ? v(a[id]) : v };
-          })
-        }
+        onAnswer={(id, v) => setPieceAnswers((a) => ({ ...a, [id]: typeof v === 'function' ? v(a[id]) : v }))}
         onNext={() => {
-          if (pieceStep < PIECE_SURVEY.length - 1) setPieceStep(pieceStep + 1);
+          if (pieceStep < SURVEY_SECTIONS.length - 1) setPieceStep(pieceStep + 1);
           else if (pieceCode) {
             setMyPiece(pieceCode);
             setPhase('result');
