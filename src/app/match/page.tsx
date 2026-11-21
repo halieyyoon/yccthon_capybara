@@ -5,7 +5,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { Contest, TeamCandidate } from '@/types/ondo';
-import { ROLE_LABEL, SKILL_CARD_BY_ID, TEMPERATURE_BY_ID } from '@/data/constants';
+import { COMPATIBILITY_MATRIX_16X16, COMPAT_LEVEL_META, ROLE_LABEL, SKILL_CARD_BY_ID, TEMPERATURE_BY_ID } from '@/data/constants';
 import { SEED_CONTESTS } from '@/data/seedContests';
 import { SCORE_WEIGHTS } from '@/lib/matching/clusterEngine';
 import { Button, Card, cx, Dialog, Icon, LinearProgress, Monogram, Tabs } from '@/components/m3';
@@ -262,6 +262,16 @@ export default function MatchPage() {
                                   {m.cv.major} · <span className="tabular">{TEMPERATURE_BY_ID[m.temperatureMode].temperature}°</span> · {m.collabType}
                                 </p>
                                 <p className="mt-1 body-small text-on-surface">凸 {m.strengths.map((s) => SKILL_CARD_BY_ID[s].strength).join(', ')}</p>
+                                {i > 0 && (() => {
+                                  const lv = COMPATIBILITY_MATRIX_16X16[user.collabType][m.collabType];
+                                  const meta = COMPAT_LEVEL_META[lv];
+                                  return (
+                                    <p className="mt-2 inline-flex items-center gap-1.5 rounded-m3-xs bg-surface-container px-2 py-0.5 label-small text-on-surface-variant" title="협업 유형 16×16 참고표 기준 시각화 배지 (심리검사 진단 아님)">
+                                      <span className="size-2 rounded-full" style={{ background: meta.color }} />
+                                      나와의 유형 조합 · {meta.label}
+                                    </p>
+                                  );
+                                })()}
                               </div>
                             </li>
                           ))}

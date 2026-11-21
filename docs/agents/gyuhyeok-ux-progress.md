@@ -32,7 +32,7 @@ npm run dev        # http://localhost:3000
 화면 흐름을 끝까지 돌리기 위해 SPEC 계약 그대로 임시로 만들었습니다. 각 파일 맨 위에 `[임시 구현 · 규혁 브랜치]` 표시가 있습니다. **export 이름·경로를 지침서와 맞췄으니 정식 구현으로 파일을 덮어쓰면 됩니다.**
 
 - **혜원**: `src/types/ondo.ts`(SPEC 4장 원문 그대로), `src/data/constants.ts`, `src/data/seedUsers.ts`(100명, 결측 30명), `src/data/seedContests.ts`(8건), `src/lib/matching/clusterEngine.ts`(Gower+PAM k=5+MDS, 팀 점수 4지표), `src/app/api/*`(Gemini + 폴백)
-  - 화면이 쓰는 추가 export: `SCORE_WEIGHTS`, `countMissing`(clusterEngine), `FEATURE_GROUP_LABEL`, `TEMPERATURE_BY_ID`, `SKILL_CARD_BY_ID`, `DEAL_BREAKER_BY_ID`, `ROLE_LABEL`, `LIKERT_LABELS`, `SKILL_LEVEL_LABELS`, `OPTIONAL_FEATURE_KEYS`, `COLLAB_AXIS_LABEL`(constants), `SAMPLE_LINKEDIN_CV_TEXT`(seedUsers)
+  - 화면이 쓰는 추가 export: `SCORE_WEIGHTS`, `countMissing`(clusterEngine), `FEATURE_GROUP_LABEL`, `TEMPERATURE_BY_ID`, `SKILL_CARD_BY_ID`, `DEAL_BREAKER_BY_ID`, `ROLE_LABEL`, `LIKERT_LABELS`, `SKILL_LEVEL_LABELS`, `OPTIONAL_FEATURE_KEYS`, `COLLAB_AXIS_LABEL`, `COMPATIBILITY_MATRIX_16X16`, `COMPAT_LEVEL_META`(5단계 라벨·색, constants), `SAMPLE_LINKEDIN_CV_TEXT`(seedUsers)
 - **연서**: `src/app/globals.css`(M3 토큰, seed `#B4532F`로 생성), `src/components/m3/*`(M3 기본 컴포넌트), `src/components/ondo/*`(`PuzzleProfileCard`, `ClusterScatterPlot`, `TeamPuzzleMerge`, `AvatarMeetingCard`, `AppShell`)
 
 ## 완료 체크리스트 확인 결과 (브라우저로 직접 확인)
@@ -43,8 +43,18 @@ npm run dev        # http://localhost:3000
 - [x] `tsc --noEmit` 0건, `next build` 통과, 모바일(375px) 가로 스크롤 없음
 - 매칭 계산: 클러스터 ~35ms + 추천 ~22ms (Node 기준)
 
-## 남은 것 / 확인 필요
+## 남은 것 (담당자별)
 
-- 실제 `GEMINI_API_KEY`로 3개 API 응답은 아직 확인하지 않음 (폴백 경로만 확인)
-- 실제 PDF 업로드는 키가 있어야 동작 (키 없으면 안내 메시지 + 샘플 버튼)
-- 16×16 호환성 매트릭스는 임시 규칙 — `reference/mbti matching matrix/` 기준 정식 값은 혜원 담당
+규혁 담당(`src/store/`, `src/app/**/page.tsx`, `src/app/layout.tsx`)은 지침서 기준으로 완료했습니다. 최종본까지 남은 일은 각 담당 영역입니다.
+
+- **혜원**
+  - 임시 구현을 정식 구현으로 교체 (위 목록 · 화면이 쓰는 추가 export 유지 필요)
+  - 16×16 호환성 매트릭스를 `reference/mbti matching matrix/` 기준 정식 값으로 (화면의 “나와의 유형 조합” 배지가 이 값을 그대로 씀)
+  - 실제 `GEMINI_API_KEY`로 3개 API 응답 확인 (지금은 폴백만 확인됨), 키 없이 PDF 업로드 시 처리 방식
+- **연서**
+  - `src/components/`, `globals.css` 정식 디자인으로 교체 (M3 토큰·컴포넌트 이름 유지하면 화면 수정 불필요)
+  - 발표 슬라이드 `docs/slides/`
+- **미정 (팀에서 정하기)**
+  - 배포(Vercel 등)와 시연용 URL
+
+> 화면(page.tsx)은 위 모듈의 export 이름에만 의존하므로, 혜원·연서 파일이 바뀌어도 이름이 같으면 화면은 그대로 동작합니다. 이름을 바꿔야 하면 규혁에게 알려 주세요.
