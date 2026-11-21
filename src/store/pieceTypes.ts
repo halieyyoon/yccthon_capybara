@@ -31,8 +31,6 @@ export interface PieceQuestion {
   options: [PieceOption, PieceOption];
 }
 
-const SIDE_LABEL = ['윗변', '오른쪽 변', '아랫변', '왼쪽 변'] as const;
-
 export const PIECE_QUESTIONS: PieceQuestion[] = [
   {
     axis: 'start',
@@ -79,10 +77,6 @@ export const PIECE_QUESTIONS: PieceQuestion[] = [
     ],
   },
 ];
-
-export function optionHint(q: PieceQuestion, o: PieceOption) {
-  return `${SIDE_LABEL[q.side]}이 ${o.edge === 1 ? '볼록' : '오목'}해져요`;
-}
 
 export interface PieceType {
   code: PieceCode;

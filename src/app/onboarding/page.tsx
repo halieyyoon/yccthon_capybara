@@ -43,7 +43,6 @@ import {
   edgesFromAnswers,
   edgesFromCode,
   emptyPieceAnswers,
-  optionHint,
   perfectMatch,
   quadrantOf,
   tagsOf,
@@ -135,7 +134,6 @@ function PieceQuestionScreen({
                 )}
               >
                 <span className="block title-medium">{o.answer}</span>
-                <span className="block body-small opacity-80">{optionHint(q, o)}</span>
               </button>
             );
           })}
