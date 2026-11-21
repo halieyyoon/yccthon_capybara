@@ -17,7 +17,84 @@ import { PuzzlePiece } from '@/components/PuzzlePiece';
 import { PuzzleProfileCard } from '@/components/PuzzleProfileCard';
 import { cvFilledSections } from '@/store/profileProgress';
 import { useHydrated, useOndoStore } from '@/store/useOndoStore';
-import { PIECE_TYPES, edgesFromCode, perfectMatch, quadrantOf } from '@/store/pieceTypes';
+import { PIECE_TYPES, dropLayout, edgesFromCode, nameI, perfectMatch, pieceOf, quadrantOf } from '@/store/pieceTypes';
+import type { Contest, TeamCandidate } from '@/types/ondo';
+
+/** 퍼즐 궁합 매트릭스 시안 4쪽 구조 — 금요일 팀 드롭: 2+2 퍼즐 · 점수 · 역할 나누기 · 만나볼래요 */
+function TeamDropView({
+  team,
+  dropAt,
+  meId,
+  myPiece,
+  onMeet,
+}: {
+  team: TeamCandidate;
+  dropAt: Date;
+  meId: string;
+  myPiece: Parameters<typeof pieceOf>[2];
+  onMeet: () => void;
+}) {
+  const codes = team.members.map((m) => pieceOf(m, meId, myPiece));
+  const names = team.members.map((m) => PIECE_TYPES[codes[team.members.indexOf(m)]].name);
+  const layout = dropLayout(codes, names);
+  const cell = (slot: number) => {
+    const i = layout.order[slot];
+    const m = team.members[i];
+    return (
+      <div className="flex flex-col items-center">
+        <PuzzlePiece mode={m.temperatureMode} edges={edgesFromCode(codes[i])} size={96} />
+        <p className="title-small">
+          {names[i]}
+          {i === 0 && ' (나)'}
+        </p>
+        <p className="label-small text-on-surface-variant">{m.nickname}</p>
+      </div>
+    );
+  };
+  const link = (kind: 'across' | 'down', n: number) => (
+    <span
+      className={cx('grid size-9 place-items-center rounded-full label-large', kind === 'across' ? 'bg-primary-container text-on-primary-container' : 'bg-secondary-container text-on-secondary-container')}
+      aria-label={kind === 'across' ? `${n}변 맞물림` : `${n}변 포개짐`}
+      title={kind === 'across' ? `${n}변 맞물림` : `${n}변 포개짐`}
+    >
+      {kind === 'across' ? '◆' : '○'}
+    </span>
+  );
+  return (
+    <div>
+      <p className="inline-flex rounded-full bg-tertiary-container px-3 py-1 label-medium text-on-tertiary-container">
+        금요일 밤 10시 · 이번 주 팀 드롭 ({dropAt.getMonth() + 1}/{dropAt.getDate()})
+      </p>
+      <h3 className="mt-2 headline-small text-on-surface">퍼즐이 완성됐어요!</h3>
+
+      <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-y-1 rounded-m3-xl bg-surface-container-low px-3 py-4">
+        {cell(0)}
+        {link('across', layout.across[0])}
+        {cell(1)}
+        <div className="flex justify-center">{link('down', layout.down[0])}</div>
+        <span />
+        <div className="flex justify-center">{link('down', layout.down[1])}</div>
+        {cell(2)}
+        {link('across', layout.across[1])}
+        {cell(3)}
+      </div>
+
+      <p className="mt-4 flex items-baseline gap-2">
+        <span className="tabular display-small text-primary">{Math.round(team.matchScore * 100)}</span>
+        <span className="body-medium text-on-surface-variant">점 퍼즐 완성도 · 가장 잘 맞는 2 + 2 모양</span>
+        <InfoTip align="end">임시 가중치로 낸 조합 지수를 100점으로 바꾼 값이에요. 정확도나 궁합 확률이 아니에요. ◆는 맞물리는 변, ○는 포개지는 변이에요.</InfoTip>
+      </p>
+      <p className="mt-3 rounded-m3-md bg-surface-container-low p-4 body-medium text-on-surface">{layout.note}</p>
+
+      <Button size="lg" className="mt-5 w-full" onClick={onMeet}>
+        만나볼래요
+      </Button>
+      <p className="mt-2 text-center body-small text-on-surface-variant">
+        누가 먼저 눌렀는지는 보이지 않아요. 네 명 모두 수락하면 이름과 프로필이 열려요.
+      </p>
+    </div>
+  );
+}
 
 type OptionalKey = 'openness' | 'conscientiousness' | 'extraversion' | 'agreeableness' | 'emotional_stability' | 'integrating' | 'obliging' | 'dominating' | 'avoiding' | 'compromising';
 
@@ -52,6 +129,8 @@ export default function ProfilePage() {
   const setPreviewOpen = useOndoStore((s) => s.setWeeklyDropPreviewOpen);
   const resetAll = useOndoStore((s) => s.resetAll);
   const myPiece = useOndoStore((s) => s.myPiece);
+  const runMatching = useOndoStore((s) => s.runMatchingForContest);
+  const unlockTeam = useOndoStore((s) => s.unlockTeam);
 
   const [deepOpen, setDeepOpen] = useState(false);
   const [draft, setDraft] = useState<Partial<Record<OptionalKey, number | null>>>({});
@@ -59,9 +138,9 @@ export default function ProfilePage() {
 
   const dropPreview = useMemo(() => {
     if (!user || !previewOpen) return null;
-    const contest = SEED_CONTESTS.find((c) => c.scale === 'large')!;
+    const contest: Contest = SEED_CONTESTS.find((c) => c.scale === 'large')!;
     const { teams } = recommendTeams(user, SEED_USERS, contest, runClusterAnalysis(user, SEED_USERS));
-    return teams[0] ?? null;
+    return teams[0] ? { contest, team: teams[0] } : null;
   }, [user, previewOpen]);
 
   if (!hydrated) return <AppShell>{null}</AppShell>;
@@ -235,37 +314,22 @@ export default function ProfilePage() {
         ))}
       </Dialog>
 
-      <Dialog open={previewOpen} onClose={() => setPreviewOpen(false)} title="딱 맞는 퍼즐 조각 4개가 모였어요" icon="event_upcoming" wide>
+      <Dialog open={previewOpen} onClose={() => setPreviewOpen(false)} title="이번 주 드롭 미리보기" wide>
         {dropPreview ? (
-          <div>
-            <p className="tabular label-medium">
-              On-do · {dropAt.getMonth() + 1}/{dropAt.getDate()}(금) 22:00
-            </p>
-            <ul className="mt-3 space-y-2">
-              {dropPreview.members.slice(1).map((m) => (
-                <li key={m.id} className={cx('flex items-center gap-3 rounded-m3-md bg-surface-container p-2.5')}>
-                  <PuzzlePiece mode={m.temperatureMode} edges={[-1, 1, -1, 1]} size={40} />
-                  <div className="min-w-0 flex-1">
-                    <p className="title-small text-on-surface">{m.nickname}</p>
-                    <p className="body-small">
-                      {m.cv.major} · {TEMPERATURE_BY_ID[m.temperatureMode].temperature}° · {m.collabType}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 flex flex-wrap gap-1.5">
-              {dropPreview.evidenceTags.map((t) => (
-                <span key={t} className="rounded-m3-xs bg-secondary-container px-2 py-0.5 label-small text-on-secondary-container">
-                  {t}
-                </span>
-              ))}
-            </p>
-            <p className="mt-3 flex items-center gap-1 body-small">
-              AI 아바타 모의회의를 확인해 보세요
-              <InfoTip align="start">누가 먼저 관심을 보냈는지는 서로 보이지 않고, 거절 알림도 가지 않아요.</InfoTip>
-            </p>
-          </div>
+          <TeamDropView
+            team={dropPreview.team}
+            dropAt={dropAt}
+            meId={user.id}
+            myPiece={myPiece}
+            onMeet={async () => {
+              setPreviewOpen(false);
+              await runMatching(dropPreview.contest.id);
+              const t = useOndoStore.getState().recommendedTeams[0];
+              if (!t) return;
+              void unlockTeam(t.id);
+              router.push(`/team/${t.id}`);
+            }}
+          />
         ) : (
           <p>계산 중…</p>
         )}

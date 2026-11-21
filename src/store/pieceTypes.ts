@@ -156,3 +156,148 @@ export function tagsOf(code: PieceCode): string[] {
 export function interlockCount(a: PieceCode, b: PieceCode) {
   return [0, 1, 2, 3].filter((i) => a[i] !== b[i]).length;
 }
+
+// ───────────── 다른 사람의 조각 · 우리 둘 궁합 · 팀 드롭 2+2 ─────────────
+
+import type { UserProfile } from '@/types/ondo';
+
+/**
+ * 4문항에 답하지 않은 사람(시드 팀원 등)의 조각을 27차원 응답에서 규칙으로 추정합니다.
+ * 내 조각은 4문항 답(myPiece)을 그대로 씁니다.
+ */
+export function derivePieceCode(u: UserProfile): PieceCode {
+  const x = u.features27;
+  const start = x.prototyping_preference > x.decision_structure_preference ? 'I' : 'P';
+  const role = Math.max(x.frontend, x.backend, x.data_ai, x.design) >= Math.max(x.planning, x.presentation) ? 'M' : 'S';
+  const decide = x.quality_priority >= x.risk_appetite ? 'E' : 'G';
+  const together = x.extraversion !== null ? x.extraversion >= 3.5 : x.ai_disclosure_preference >= 4;
+  return `${start}${role}${decide}${together ? 'W' : 'A'}` as PieceCode;
+}
+
+export function pieceOf(u: UserProfile, currentUserId: string, myPiece: PieceCode | null): PieceCode {
+  return u.id === currentUserId && myPiece ? myPiece : derivePieceCode(u);
+}
+
+const josa = (name: string, withBatchim: string, without: string) => {
+  const code = name.charCodeAt(name.length - 1) - 0xac00;
+  return code >= 0 && code <= 11171 && code % 28 !== 0 ? withBatchim : without;
+};
+/** 이름 + 이/가 (뚝딱이, 척척이) — 시안 말투 */
+export const nameI = (name: string) => `${name}${josa(name, '이', '')}`;
+
+// 축별 문장: [내 글자][상대 글자] → 상대가 나에게 해 주는 것 / 같으면 나눌 것
+const AXIS_LINES: Record<AxisId, Record<string, (them: string) => string>> = {
+  start: {
+    IP: (t) => `내가 던진 아이디어를 ${t}가 일정표로 바꿔 줘요`,
+    PI: (t) => `${t}가 던진 아이디어를 내가 일정표로 바꿔요`,
+    II: () => '둘 다 아이디어부터 — 계획은 누가 맡을지 먼저 정해요',
+    PP: () => '둘 다 계획부터 — 새 아이디어 낼 시간을 따로 잡아요',
+  },
+  role: {
+    MS: (t) => `내가 만든 걸 ${t}가 심사위원 언어로 풀어 줘요`,
+    SM: (t) => `${t}가 만든 걸 내가 심사위원 언어로 풀어요`,
+    MM: () => '둘 다 만들기 — 발표·문서 담당을 미리 정해요',
+    SS: () => '둘 다 설득 — 실제 구현은 누가 할지 정해요',
+  },
+  decide: {
+    GE: (t) => `내 감을 ${t}가 자료로 한 번 더 확인해 줘요`,
+    EG: (t) => `망설일 때 ${t}가 감으로 방향을 잡아 줘요`,
+    GG: () => '둘 다 감으로 — 큰 결정 하나는 자료로 확인해요',
+    EE: () => '둘 다 근거로 — 자료 조사 마감 시간을 정해요',
+  },
+  style: {
+    AW: (t) => `내가 놓친 팀 소통을 ${t}가 대신 챙겨 줘요`,
+    WA: (t) => `${t}가 혼자 몰입할 시간을 내가 지켜 줘요`,
+    AA: () => '둘 다 혼자 몰입 — 같이 보는 시간을 꼭 잡아요',
+    WW: () => '둘 다 같이 — 혼자 끝낼 몫도 나눠요',
+  },
+};
+
+const HEADLINE: Record<number, [string, string]> = {
+  4: ['완벽하게 맞물려요', '네 변이 전부 반대예요'],
+  3: ['거의 다 맞물려요', '세 변이 반대예요'],
+  2: ['반은 맞물리고 반은 포개져요', '두 변이 반대예요'],
+  1: ['대부분 포개져요', '한 변만 반대예요'],
+  0: ['포개지는 쌍둥이예요', '네 변이 전부 같아요'],
+};
+
+export interface PairReport {
+  count: number;
+  headline: string;
+  sub: string;
+  axes: { axis: AxisId; label: string; opposite: boolean; line: string }[];
+  firstMeeting: string;
+}
+
+export function pairReport(me: PieceCode, them: PieceCode, themName: string): PairReport {
+  const t = nameI(themName);
+  const axes = PIECE_QUESTIONS.map((q, i) => {
+    const mine = q.options.find((o) => o.letter === me[i])!;
+    const theirs = q.options.find((o) => o.letter === them[i])!;
+    const opposite = mine.letter !== theirs.letter;
+    return {
+      axis: q.axis,
+      label: opposite ? `${q.axisLabel} ${mine.tag} ↔ ${theirs.tag}` : `${q.axisLabel} 둘 다 ${mine.tag}`,
+      opposite,
+      line: AXIS_LINES[q.axis][`${me[i]}${them[i]}`](t),
+    };
+  });
+  const count = interlockCount(me, them);
+  const style = `${me[3]}${them[3]}`;
+  const firstMeeting =
+    style === 'AW' || style === 'WA'
+      ? '혼자 파는 시간과 같이 보는 시간. 예를 들면 일주일에 두 번, 30분 공유.'
+      : style === 'AA'
+        ? '같이 보는 시간부터. 예를 들면 일주일에 두 번, 30분 공유.'
+        : me[2] !== them[2]
+          ? '큰 결정을 정하는 방법. 예를 들면 30분 안에 자료 하나 보고 바로 정하기.'
+          : me[1] === them[1]
+            ? '겹치는 일을 누가 맡을지. 예를 들면 만들기와 발표를 한 명씩.'
+            : '각자 혼자 끝낼 몫. 예를 들면 화면은 한 명, 발표 자료는 다른 한 명.';
+  return { count, headline: HEADLINE[count][0], sub: HEADLINE[count][1], axes, firstMeeting };
+}
+
+export interface DropLayout {
+  /** 2×2 순서: [왼쪽 위, 오른쪽 위, 왼쪽 아래, 오른쪽 아래] */
+  order: number[];
+  /** 가로 연결(위·아래 줄): 맞물리는 변 수 */
+  across: [number, number];
+  /** 세로 연결(왼쪽·오른쪽 열): 같은 변 수 */
+  down: [number, number];
+  note: string;
+}
+
+const ROLE_WORK: Record<string, string> = { M: '만들기', S: '문서와 발표' };
+
+/**
+ * 팀 드롭 2+2: 결이 같은 둘씩(세로 열) 묶고, 서로 맞물리는 상대를 같은 줄(가로)에 둡니다.
+ * order[0]은 항상 나(멤버 0)로 맞춥니다.
+ */
+export function dropLayout(codes: PieceCode[], names: string[]): DropLayout {
+  const same = (a: number, b: number) => 4 - interlockCount(codes[a], codes[b]);
+  const pairings: [number, number, number, number][] = [
+    [0, 1, 2, 3],
+    [0, 2, 1, 3],
+    [0, 3, 1, 2],
+  ];
+  // 열(같은 결) 묶음: 열 안 유사도 합이 가장 큰 짝짓기
+  let best = pairings[0];
+  for (const p of pairings) if (same(p[0], p[1]) + same(p[2], p[3]) > same(best[0], best[1]) + same(best[2], best[3])) best = p;
+  const [a1, a2, b1, b2] = best;
+  // 가로(맞물림) 정렬: 줄마다 반대 변이 많은 쪽
+  const straight = interlockCount(codes[a1], codes[b1]) + interlockCount(codes[a2], codes[b2]);
+  const swapped = interlockCount(codes[a1], codes[b2]) + interlockCount(codes[a2], codes[b1]);
+  const [r1, r2] = swapped > straight ? [b2, b1] : [b1, b2];
+  const order = [a1, r1, a2, r2];
+  const n = (i: number) => nameI(names[i]);
+  const col = (i: number, j: number) =>
+    codes[i][1] === codes[j][1] ? `${n(i)}와 ${n(j)}는 ${ROLE_WORK[codes[i][1]]}` : `${n(i)}는 ${ROLE_WORK[codes[i][1]]}, ${n(j)}는 ${ROLE_WORK[codes[j][1]]}`;
+  const bothSame = codes[a1][1] === codes[a2][1] && codes[r1][1] === codes[r2][1];
+  const note = `${col(a1, a2)}, ${col(r1, r2)}. ${bothSame ? '결이 같은 둘끼리 일이 몰리지 않게 첫 회의에서 나눠요.' : '맡을 일이 겹치는 사람끼리 첫 회의에서 먼저 나눠요.'}`;
+  return {
+    order,
+    across: [interlockCount(codes[a1], codes[r1]), interlockCount(codes[a2], codes[r2])],
+    down: [same(a1, a2), same(r1, r2)],
+    note,
+  };
+}
