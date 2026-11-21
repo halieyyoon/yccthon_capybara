@@ -8,7 +8,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Contest, TeamCandidate } from '@/types/ondo';
-import { COMPATIBILITY_MATRIX_16X16, COMPAT_LEVEL_META, ROLE_LABEL, SKILL_CARD_BY_ID, TEMPERATURE_BY_ID } from '@/data/constants';
+import { COMPATIBILITY_MATRIX_16X16, COMPAT_LEVEL_META, TEMPERATURE_MODES, ROLE_LABEL, SKILL_CARD_BY_ID, TEMPERATURE_BY_ID } from '@/data/constants';
 import { SEED_CONTESTS } from '@/data/seedContests';
 import { SCORE_WEIGHTS } from '@/lib/matching/clusterEngine';
 import { refsText, WEIGHT_SOURCE } from '@/data/references';
@@ -244,6 +244,7 @@ export default function MatchPage() {
   const avatarLoading = useOndoStore((s) => s.avatarLoading);
   const consentCount = useOndoStore((s) => s.consentCount);
   const busy = useOndoStore((s) => s.matchingBusy);
+  const contestModes = useOndoStore(s => s.contestModes);
   const runMatching = useOndoStore((s) => s.runMatchingForContest);
   const requestAvatarMeeting = useOndoStore((s) => s.requestAvatarMeeting);
   const unlockTeam = useOndoStore((s) => s.unlockTeam);
@@ -328,6 +329,16 @@ export default function MatchPage() {
                 <p className="label-large text-primary">{contest.title}</p>
                 <h1 id="match-results-title" className="headline-small">추천 팀</h1>
                 <p className="body-small text-on-surface-variant">모집 역할 · {contest.requiredRoles.map((role) => ROLE_LABEL[role]).join(' · ')}</p>
+                <label className="inline-flex items-center gap-2 body-small">
+                  이번 대회 참여 온도
+                  <select className="min-h-10 rounded-m3-sm bg-surface-container px-2" value={contestModes[contest.id] ?? user.temperatureMode}
+                    onChange={event => {
+                      const mode = TEMPERATURE_MODES.find(m => m.id === event.target.value);
+                      if (mode) void runMatching(contest.id, mode.id);
+                    }}>
+                    {TEMPERATURE_MODES.map(m => <option key={m.id} value={m.id}>{m.temperature}° · {m.short}</option>)}
+                  </select>
+                </label>
               </header>
               <div className="overflow-hidden rounded-m3-md bg-surface-container-low">
                 <div className="px-4 pt-4 sm:px-5">

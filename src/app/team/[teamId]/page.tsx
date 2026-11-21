@@ -57,7 +57,7 @@ export default function TeamPage() {
   const { teamId } = useParams<{ teamId: string }>();
   const hydrated = useHydrated();
   const user = useOndoStore((s) => s.currentUser);
-  const team = useOndoStore((s) => s.recommendedTeams.find((t) => t.id === teamId));
+  const team = useOndoStore((s) => s.savedTeams[teamId] ?? s.recommendedTeams.find((t) => t.id === teamId));
   const unlocked = useOndoStore((s) => s.unlockedTeamIds.includes(teamId));
   const meeting = useOndoStore((s) => s.avatarMeetings[teamId]);
   const accepted = useOndoStore((s) => s.consentCount[teamId] ?? 1);
