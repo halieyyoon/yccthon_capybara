@@ -305,6 +305,8 @@ function SectionScreen({
       </main>
       <div ref={footerRef} className="sticky bottom-0 bg-surface/95 shadow-[0_-1px_0_var(--md-sys-color-surface-container-high)] backdrop-blur">
         <div className="mx-auto flex w-full max-w-xl items-center gap-4 px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+          {/* 답할수록 완성되는 내 조각 */}
+          <PuzzlePiece mode="fun" edges={edgesFromAnswers(answers)} size={64} />
           <div className="min-w-0 flex-1">
             <SectionSteps step={step} />
           </div>
