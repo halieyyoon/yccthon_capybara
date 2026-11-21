@@ -4,7 +4,7 @@
 // 퍼즐 조각 SVG 기본 요소. 온도 상태(fun/balanced/serious)에 따라 돌기 모양과 색이 바뀝니다.
 // 계약 컴포넌트(PuzzleProfileCard, TeamPuzzleMerge 등)가 공통으로 쓰는 하위 부품입니다.
 
-import { useId } from 'react';
+import { useEffect, useRef } from 'react';
 import type { TemperatureMode } from '@/types/ondo';
 export type EdgeType = 1 | 0 | -1;
 type Pt = [number, number];
@@ -66,10 +66,19 @@ export const PUZZLE_THEME: Record<TemperatureMode, { fill: string; stroke: strin
   serious: { fill: 'var(--puzzle-serious-30)', stroke: 'var(--puzzle-serious-ink)', ink: '#ffffff', surface: 'var(--puzzle-serious-95)', accent: 'var(--puzzle-serious-80)' },
 };
 
-const GLASS_COLORS: Record<TemperatureMode, { light: string; middle: string; deep: string; ink: string }> = {
-  fun: { light: '#fff4e8', middle: '#ffdcd4', deep: '#ecb5c9', ink: '#642f42' },
-  balanced: { light: '#effffb', middle: '#c9eeee', deep: '#a8cdf5', ink: '#234c69' },
-  serious: { light: '#f5f2ff', middle: '#dce0ff', deep: '#b9bafb', ink: '#343467' },
+const PUZZLE_ASSET: Record<string, string> = {
+  '-1,1,-1,1': 'profile',
+  '1,1,-1,-1': 'default',
+  '0,1,-1,0': 'top-left',
+  '0,0,1,-1': 'top-right',
+  '1,-1,0,0': 'bottom-left',
+  '-1,0,0,1': 'bottom-right',
+};
+
+const GLASS_INK: Record<TemperatureMode, string> = {
+  fun: '#542938',
+  balanced: '#1c425d',
+  serious: '#302959',
 };
 
 /** 조각 SVG의 viewBox 여백 비율 (조각 본체 100 + 양쪽 32) */
@@ -94,75 +103,81 @@ export function PuzzlePiece({
   highlight?: boolean;
   labelSize?: number;
 }) {
-  const id = useId();
-  const colors = GLASS_COLORS[mode];
-  const outline = highlight ? 'var(--md-sys-color-primary)' : PUZZLE_THEME[mode].stroke;
-  const path = piecePath(edges, mode);
-  const pad = 32;
-  return (
-    <svg viewBox={`${-pad} ${-pad} ${100 + pad * 2} ${100 + pad * 2}`} width={size} height={size} className={className} overflow="visible" role="img" aria-label={label}>
-      <defs>
-        <path id={`${id}-shape`} d={path} className="motion-safe:transition-[d] motion-safe:duration-300" />
-        <linearGradient id={`${id}-glass`} x1="10%" y1="0%" x2="88%" y2="100%">
-          <stop stopColor={colors.light} />
-          <stop offset="52%" stopColor={colors.middle} stopOpacity={0.94} />
-          <stop offset="100%" stopColor={colors.deep} stopOpacity={0.96} />
-        </linearGradient>
-        <linearGradient id={`${id}-thickness`} x1="0%" y1="0%" x2="86%" y2="100%">
-          <stop stopColor={colors.middle} />
-          <stop offset="58%" stopColor={colors.deep} />
-          <stop offset="100%" stopColor={outline} stopOpacity={0.68} />
-        </linearGradient>
-        <linearGradient id={`${id}-reflection`} x1="14%" y1="5%" x2="80%" y2="87%">
-          <stop stopColor="#ffffff" stopOpacity={0.8} />
-          <stop offset="32%" stopColor="#ffffff" stopOpacity={0.24} />
-          <stop offset="39%" stopColor="#ffffff" stopOpacity={0.49} />
-          <stop offset="45%" stopColor="#ffffff" stopOpacity={0.13} />
-          <stop offset="61%" stopColor="#ffffff" stopOpacity={0} />
-          <stop offset="90%" stopColor="#ffffff" stopOpacity={0} />
-          <stop offset="100%" stopColor="#ffffff" stopOpacity={0.48} />
-        </linearGradient>
-        <linearGradient id={`${id}-rim`} x1="9%" y1="0%" x2="87%" y2="100%">
-          <stop stopColor="#ffffff" stopOpacity={0.95} />
-          <stop offset="37%" stopColor="#ffffff" stopOpacity={0.78} />
-          <stop offset="66%" stopColor={colors.deep} stopOpacity={0.32} />
-          <stop offset="100%" stopColor="#ffffff" stopOpacity={0.62} />
-        </linearGradient>
-      </defs>
-      <g strokeLinejoin={mode === 'serious' ? 'miter' : 'round'}>
-        <use
-          href={`#${id}-shape`}
-          y={edges.includes(0) ? 2.5 : 5}
-          fill={`url(#${id}-thickness)`}
-          stroke={outline}
-          strokeWidth={1}
-          strokeOpacity={0.35}
-        />
-        <use
-          href={`#${id}-shape`}
-          fill={`url(#${id}-glass)`}
-          stroke={outline}
-          strokeWidth={highlight ? 3.2 : 2.4}
-          strokeOpacity={highlight ? 1 : 0.64}
-        />
-        <use
-          href={`#${id}-shape`}
-          fill={`url(#${id}-reflection)`}
-          stroke={`url(#${id}-rim)`}
-          strokeWidth={1.25}
-        />
-      </g>
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const artwork = useRef<HTMLSpanElement>(null);
+  const fallback = useRef<SVGSVGElement>(null);
+  const hasRendered = useRef(false);
+  const assembled = edges.includes(0);
+  const shape = piecePath(edges, assembled ? 'balanced' : mode);
+  const asset = PUZZLE_ASSET[edges.join(',')];
+  const ink = GLASS_INK[mode];
+  const viewBox = '-32 -32 164 164';
+
+  useEffect(() => {
+    const canvasElement = canvas.current;
+    const artworkElement = artwork.current;
+    const fallbackElement = fallback.current;
+    if (!canvasElement || !artworkElement || !fallbackElement) return;
+
+    let canceled = false;
+    let unmount: (() => void) | undefined;
+
+    void import('./PuzzleGlassRenderer').then(({ mountGlassPuzzle }) => {
+      if (canceled) return;
+      unmount = mountGlassPuzzle({
+        canvas: canvasElement,
+        artwork: artworkElement,
+        fallback: fallbackElement,
+        path: shape,
+        mode,
+        assembled,
+        animate: !hasRendered.current,
+        onRender: () => { hasRendered.current = true; },
+      });
+    }).catch(() => {
+      if (!canceled) fallbackElement.style.visibility = 'visible';
+    });
+
+    return () => {
+      canceled = true;
+      unmount?.();
+    };
+  }, [assembled, mode, shape, size]);
+
+  const labels = (
+    <>
+      {highlight && (
+        <path d={shape} fill="none" stroke="var(--md-sys-color-primary)" strokeWidth={1.8} strokeOpacity={0.85} />
+      )}
       {label && (
-        <text x={50} y={sublabel ? 47 : 55} textAnchor="middle" fill={colors.ink} style={{ font: `600 ${labelSize}px var(--font-sans)`, letterSpacing: labelSize < 14 ? '0' : '0.04em' }}>
+        <text x={50} y={sublabel ? 47 : 55} textAnchor="middle" fill={ink} style={{ font: `650 ${labelSize}px var(--font-sans)`, letterSpacing: labelSize < 14 ? '0' : '0.04em' }}>
           {label}
         </text>
       )}
       {sublabel && (
-        <text x={50} y={66} textAnchor="middle" fill={colors.ink} opacity={0.75} style={{ font: '500 9.5px var(--font-sans)' }}>
+        <text x={50} y={66} textAnchor="middle" fill={ink} opacity={0.85} style={{ font: '500 9.5px var(--font-sans)' }}>
           {sublabel}
         </text>
       )}
-    </svg>
+    </>
+  );
+
+  return (
+    <span className={`relative inline-block shrink-0 ${className ?? ''}`} style={{ width: size, height: size }} role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+      <svg ref={fallback} viewBox={viewBox} className="absolute inset-0 size-full" aria-hidden="true">
+        {asset ? (
+          <image href={`/puzzles/${mode}-${asset}.webp`} x={-32} y={-32} width={164} height={164} opacity={0.87} />
+        ) : (
+          <path d={shape} fill={PUZZLE_THEME[mode].fill} stroke={PUZZLE_THEME[mode].stroke} strokeWidth={1.5} />
+        )}
+        {labels}
+      </svg>
+      <span ref={artwork} className="pointer-events-none absolute inset-0" style={{ opacity: 0 }} aria-hidden="true">
+        <canvas ref={canvas} className="block size-full" />
+        {(label || sublabel || highlight) && (
+          <svg viewBox={viewBox} className="absolute inset-0 size-full" style={{ opacity: 'var(--puzzle-label-opacity, 0)' }}>{labels}</svg>
+        )}
+      </span>
+    </span>
   );
 }
-
