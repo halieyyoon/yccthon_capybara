@@ -1,6 +1,8 @@
 'use client';
 
 // 소유: 규혁 — 2) `/onboarding` 2분 필수 온보딩 (+ 선택 심화)
+// 구조(퍼즐 궁합 매트릭스 시안): ① ‘내 조각’ 4문항 — 한 화면 한 문항 · 2지선다 · 답할 때마다 조각 한 변 완성
+//   → ② 결과 ‘내 조각이 나왔어요!’(16유형 · 딱 맞물리는 짝 · 포개지는 쌍둥이) → ③ 매칭 정보(아래 Step 1~4)
 // Step 1~3 필수, Step 4(성격 5·갈등 5) 선택. 건너뛰면 10개 차원은 null.
 // 끝나면 CV 작성으로 이어짐(프로필 = 퍼즐 + CV, 05 workflow) — CV는 건너뛸 수 있음.
 
@@ -32,6 +34,20 @@ import {
 import { Button, Chip, cx, Icon, IconButton, InfoTip, LinearProgress, SegmentedButton, Switch, TextField } from '@/components/m3';
 import { PuzzlePiece } from '@/components/PuzzlePiece';
 import { useOndoStore } from '@/store/useOndoStore';
+import {
+  PIECE_QUESTIONS,
+  PIECE_TYPES,
+  type PieceAnswers,
+  type PieceCode,
+  codeFromAnswers,
+  edgesFromAnswers,
+  edgesFromCode,
+  emptyPieceAnswers,
+  optionHint,
+  perfectMatch,
+  quadrantOf,
+  tagsOf,
+} from '@/store/pieceTypes';
 
 type Answers = Partial<Record<FeatureKey, number>>;
 
@@ -70,10 +86,157 @@ function Section({ title, tip, children }: { title: string; tip?: string; childr
   );
 }
 
+function PieceQuestionScreen({
+  index,
+  answers,
+  onPick,
+  onNext,
+  onBack,
+}: {
+  index: number;
+  answers: PieceAnswers;
+  onPick: (letter: PieceAnswers[number]) => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  const q = PIECE_QUESTIONS[index];
+  const picked = answers[index];
+  return (
+    <div className="flex min-h-dvh flex-col bg-page">
+      <header className="mx-auto flex h-16 w-full max-w-xl items-center gap-3 px-4">
+        <IconButton icon="arrow_back" label={index === 0 ? '나가기' : '이전 질문'} onClick={onBack} />
+        <LinearProgress value={(index + (picked ? 1 : 0)) / PIECE_QUESTIONS.length} className="flex-1" />
+        <span className="tabular label-large text-on-surface-variant">
+          {index + 1}/{PIECE_QUESTIONS.length}
+        </span>
+      </header>
+      <main key={index} className="page-enter mx-auto flex w-full max-w-xl flex-1 flex-col px-4 pb-6">
+        <p className="mt-2 label-large text-primary">{q.ordinal}</p>
+        <h1 className="mt-1 headline-medium">{q.question}</h1>
+
+        <div className="mt-6 grid place-items-center rounded-m3-xl bg-surface py-6">
+          <PuzzlePiece mode="fun" edges={edgesFromAnswers(answers)} size={176} />
+          <p className="mt-1 body-small text-on-surface-variant">답할 때마다 조각이 한 변씩 완성돼요</p>
+        </div>
+
+        <div className="mt-4 space-y-3" role="radiogroup" aria-label={q.question}>
+          {q.options.map((o) => {
+            const sel = picked === o.letter;
+            return (
+              <button
+                key={o.letter}
+                type="button"
+                role="radio"
+                aria-checked={sel}
+                onClick={() => onPick(o.letter)}
+                className={cx(
+                  'w-full rounded-m3-lg px-5 py-4 text-left transition-[background-color,box-shadow] duration-200',
+                  sel ? 'bg-secondary-container text-on-secondary-container shadow-[0_0_0_2px_var(--md-sys-color-secondary)]' : 'bg-surface hover:bg-surface-container',
+                )}
+              >
+                <span className="block title-medium">{o.answer}</span>
+                <span className="block body-small opacity-80">{optionHint(q, o)}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-auto pt-8">
+          <p className="mb-3 text-center body-small text-on-surface-variant">정답은 없어요. 반대여도, 똑같아도 다 맞물려요.</p>
+          <Button size="lg" className="w-full" disabled={!picked} onClick={onNext}>
+            {index === PIECE_QUESTIONS.length - 1 ? '내 조각 보기' : '다음 질문'}
+          </Button>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function MiniPiece({ code, caption, tone }: { code: PieceCode; caption: string; tone: 'match' | 'twin' }) {
+  const t = PIECE_TYPES[code];
+  return (
+    <div className="grid place-items-center rounded-m3-lg bg-surface px-3 py-4 text-center">
+      <PuzzlePiece mode={tone === 'match' ? 'serious' : 'fun'} edges={edgesFromCode(code)} size={88} />
+      <p className={cx('mt-1 flex items-center gap-1 label-medium', tone === 'match' ? 'text-primary' : 'text-secondary')}>
+        <Icon name={tone === 'match' ? 'extension' : 'join'} size={14} />
+        {caption}
+      </p>
+      <p className="title-medium">{t.name}</p>
+    </div>
+  );
+}
+
+function PieceResultScreen({ code, onContinue, onRetry }: { code: PieceCode; onContinue: () => void; onRetry: () => void }) {
+  const t = PIECE_TYPES[code];
+  const match = perfectMatch(code);
+  const [shared, setShared] = useState<string | null>(null);
+  const share = async () => {
+    const text = `On-do에서 내 조각이 나왔어요: ${t.name} (${quadrantOf(code)} · ${code} ${t.title}) — ${t.line}`;
+    try {
+      if (navigator.share) await navigator.share({ title: 'On-do 내 조각', text });
+      else {
+        await navigator.clipboard.writeText(text);
+        setShared('복사했어요');
+      }
+    } catch {}
+  };
+  return (
+    <div className="min-h-dvh bg-page">
+      <main className="page-enter mx-auto flex min-h-dvh w-full max-w-xl flex-col px-4 py-8">
+        <p className="text-center title-medium text-primary">내 조각이 나왔어요!</p>
+        <section className="mt-4 grid place-items-center rounded-m3-xl bg-surface px-5 py-8 text-center">
+          <PuzzlePiece mode="fun" edges={edgesFromCode(code)} size={200} />
+          <h1 className="mt-2 display-small">{t.name}</h1>
+          <p className="mt-2 rounded-full bg-surface-container px-4 py-1.5 label-large text-on-surface">
+            {quadrantOf(code)} · {code} {t.title}
+          </p>
+          <p className="mt-3 body-large text-on-surface-variant">{t.line}</p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {tagsOf(code).map((tag) => (
+              <span key={tag} className="rounded-full bg-surface-container px-3 py-1 label-large text-on-surface">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </section>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <MiniPiece code={match} caption="딱 맞물리는 짝" tone="match" />
+          <MiniPiece code={code} caption="포개지는 쌍둥이" tone="twin" />
+        </div>
+        <p className="mt-2 flex items-center justify-center gap-1 body-small text-on-surface-variant">
+          {PIECE_TYPES[match].name}과는 네 변이 전부 반대라 딱 맞물려요
+          <InfoTip>4문항 답으로 정한 협업 성향 조각이에요(심리검사 아님). 실제 팀 추천은 다음 단계의 응답까지 함께 보고 정해요.</InfoTip>
+        </p>
+
+        <div className="mt-auto space-y-2 pt-8">
+          <Button size="lg" className="w-full" icon="arrow_forward" onClick={onContinue}>
+            이 조각으로 팀 맞추기
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="outlined" className="flex-1" icon="ios_share" onClick={share}>
+              {shared ?? '자랑하기'}
+            </Button>
+            <Button variant="text" className="flex-1" icon="refresh" onClick={onRetry}>
+              다시 답하기
+            </Button>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
   const setCurrentUser = useOndoStore((s) => s.setCurrentUser);
   const setJustOnboarded = useOndoStore((s) => s.setJustOnboarded);
+  const setMyPiece = useOndoStore((s) => s.setMyPiece);
+
+  // ① 내 조각 4문항 → ② 결과 → ③ 매칭 정보(Step 1~4)
+  const [phase, setPhase] = useState<'piece' | 'result' | 'profile'>('piece');
+  const [pieceStep, setPieceStep] = useState(0);
+  const [pieceAnswers, setPieceAnswers] = useState<PieceAnswers>(emptyPieceAnswers);
+  const pieceCode = codeFromAnswers(pieceAnswers);
 
   const [step, setStep] = useState(0);
   const [startedAt] = useState(() => Date.now());
@@ -102,7 +265,7 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [step, deepOpen]);
+  }, [step, deepOpen, phase, pieceStep]);
 
   const toggle = <T,>(v: T, max: number, set: React.Dispatch<React.SetStateAction<T[]>>) =>
     set((list) => (list.includes(v) ? list.filter((x) => x !== v) : list.length < max ? [...list, v] : list));
@@ -199,6 +362,44 @@ export default function OnboardingPage() {
     router.push('/cv');
   };
 
+  if (phase === 'piece') {
+    return (
+      <PieceQuestionScreen
+        index={pieceStep}
+        answers={pieceAnswers}
+        onPick={(letter) =>
+          setPieceAnswers((a) => {
+            const next = [...a] as PieceAnswers;
+            next[pieceStep] = letter;
+            return next;
+          })
+        }
+        onNext={() => {
+          if (pieceStep < PIECE_QUESTIONS.length - 1) setPieceStep(pieceStep + 1);
+          else if (pieceCode) {
+            setMyPiece(pieceCode);
+            setPhase('result');
+          }
+        }}
+        onBack={() => (pieceStep === 0 ? router.push('/') : setPieceStep(pieceStep - 1))}
+      />
+    );
+  }
+
+  if (phase === 'result' && pieceCode) {
+    return (
+      <PieceResultScreen
+        code={pieceCode}
+        onContinue={() => setPhase('profile')}
+        onRetry={() => {
+          setPieceAnswers(emptyPieceAnswers());
+          setPieceStep(0);
+          setPhase('piece');
+        }}
+      />
+    );
+  }
+
   const optionalLeft = OPTIONAL_LIKERT.filter((q) => answers[q.key] === undefined).length;
   const mm = String(Math.floor(elapsed / 60));
   const ss = String(elapsed % 60).padStart(2, '0');
@@ -209,12 +410,12 @@ export default function OnboardingPage() {
       <header className="sticky top-0 z-30 bg-page/95 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-3xl items-center gap-2 px-4">
           <IconButton
-            icon={step === 0 ? 'close' : 'arrow_back'}
-            label={step === 0 ? '나가기' : '이전'}
-            onClick={() => (step === 0 ? router.push('/') : deepOpen ? setDeepOpen(false) : setStep(step - 1))}
+            icon="arrow_back"
+            label={step === 0 ? '내 조각으로' : '이전'}
+            onClick={() => (step === 0 ? setPhase('result') : deepOpen ? setDeepOpen(false) : setStep(step - 1))}
           />
           <div className="min-w-0">
-            <p className="label-small text-on-surface-variant">{step + 1} / 4</p>
+            <p className="label-small text-on-surface-variant">매칭 정보 · {step + 1}/4</p>
             <h1 className="truncate title-large">{STEP_TITLES[step]}</h1>
           </div>
           <p className="tabular ml-auto rounded-full bg-surface px-3 py-1 label-large text-on-surface-variant shadow-[0_0_0_1px_var(--md-sys-color-outline-variant)]" aria-label="경과 시간">

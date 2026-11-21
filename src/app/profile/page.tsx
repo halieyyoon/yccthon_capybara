@@ -17,6 +17,7 @@ import { PuzzlePiece } from '@/components/PuzzlePiece';
 import { PuzzleProfileCard } from '@/components/PuzzleProfileCard';
 import { cvFilledSections } from '@/store/profileProgress';
 import { useHydrated, useOndoStore } from '@/store/useOndoStore';
+import { PIECE_TYPES, edgesFromCode, perfectMatch, quadrantOf } from '@/store/pieceTypes';
 
 type OptionalKey = 'openness' | 'conscientiousness' | 'extraversion' | 'agreeableness' | 'emotional_stability' | 'integrating' | 'obliging' | 'dominating' | 'avoiding' | 'compromising';
 
@@ -50,6 +51,7 @@ export default function ProfilePage() {
   const previewOpen = useOndoStore((s) => s.weeklyDropPreviewOpen);
   const setPreviewOpen = useOndoStore((s) => s.setWeeklyDropPreviewOpen);
   const resetAll = useOndoStore((s) => s.resetAll);
+  const myPiece = useOndoStore((s) => s.myPiece);
 
   const [deepOpen, setDeepOpen] = useState(false);
   const [draft, setDraft] = useState<Partial<Record<OptionalKey, number | null>>>({});
@@ -99,6 +101,19 @@ export default function ProfilePage() {
         />
 
         <aside className="space-y-4">
+          {myPiece && (
+            <Card className="flex items-center gap-4 p-4">
+              <PuzzlePiece mode={user.temperatureMode} edges={edgesFromCode(myPiece)} size={64} />
+              <div className="min-w-0 flex-1">
+                <p className="label-small text-on-surface-variant">내 조각</p>
+                <p className="title-large">{PIECE_TYPES[myPiece].name}</p>
+                <p className="truncate body-small text-on-surface-variant">
+                  {quadrantOf(myPiece)} · {myPiece} {PIECE_TYPES[myPiece].title}
+                </p>
+              </div>
+              <InfoTip align="end">딱 맞물리는 짝은 {PIECE_TYPES[perfectMatch(myPiece)].name}이에요. 4문항 답으로 정한 협업 성향 조각이에요(심리검사 아님).</InfoTip>
+            </Card>
+          )}
           <Card className="space-y-1 p-1">
             <div className="flex items-center gap-4 p-4">
               <Ring value={answered} max={27} label="퍼즐 응답" />

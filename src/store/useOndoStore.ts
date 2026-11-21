@@ -22,6 +22,7 @@ import { SEED_USERS } from '@/data/seedUsers';
 import { SEED_CONTESTS } from '@/data/seedContests';
 import { recommendTeams, runClusterAnalysis } from '@/lib/matching/clusterEngine';
 import { DEMO_USER } from './demoUser';
+import type { PieceCode } from './pieceTypes';
 
 export type PilotVote = 'join' | 'pass';
 
@@ -65,6 +66,8 @@ interface OndoState {
   consentCount: Record<string, number>;
   /** 온보딩을 막 마친 상태 — CV 작성으로 이어 주는 안내에 사용 (저장 안 함) */
   justOnboarded: boolean;
+  /** ‘내 조각’ 4문항 결과 (4축 16유형) */
+  myPiece: PieceCode | null;
 
   initDemoUser: () => void;
   setCurrentUser: (user: UserProfile) => void;
@@ -81,6 +84,7 @@ interface OndoState {
   /** 넘기기·미성사 — 거절 알림 없이 조용히 종료 (status = 'EXPIRED') */
   passTeam: (teamId: string) => void;
   setJustOnboarded: (v: boolean) => void;
+  setMyPiece: (code: PieceCode | null) => void;
   resetAll: () => void;
 }
 
@@ -97,6 +101,7 @@ const initial = {
   matchingBusy: false,
   consentCount: {},
   justOnboarded: false,
+  myPiece: null as PieceCode | null,
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -107,7 +112,7 @@ export const useOndoStore = create<OndoState>()(
       ...initial,
 
       initDemoUser: () =>
-        set({ ...initial, currentUser: structuredClone(DEMO_USER) }),
+        set({ ...initial, currentUser: structuredClone(DEMO_USER), myPiece: 'IMGA' }),
 
       setCurrentUser: (user) =>
         set({ currentUser: { ...user, collabType: deriveCollabType(user.features27) } }),
@@ -213,6 +218,8 @@ export const useOndoStore = create<OndoState>()(
 
       setJustOnboarded: (v) => set({ justOnboarded: v }),
 
+      setMyPiece: (code) => set({ myPiece: code }),
+
       resetAll: () => set({ ...initial }),
     }),
     {
@@ -228,6 +235,7 @@ export const useOndoStore = create<OndoState>()(
         pilotStates: s.pilotStates,
         unlockedTeamIds: s.unlockedTeamIds,
         consentCount: s.consentCount,
+        myPiece: s.myPiece,
       }),
     },
   ),
