@@ -164,7 +164,8 @@ export const useOndoStore = create<OndoState>()(
           pilotStates: keep(pilotStates),
           matchingBusy: false,
         });
-        if (contest.scale === 'large' && teams[0]) await get().requestAvatarMeeting(teams[0].id);
+        // 대회 구분 없이 모든 대회에서 1순위 팀의 AI 아바타 모의회의를 바로 실행
+        if (teams[0]) await get().requestAvatarMeeting(teams[0].id);
       },
 
       requestAvatarMeeting: async (teamId) => {

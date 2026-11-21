@@ -138,7 +138,7 @@ export default function ProfilePage() {
 
   const dropPreview = useMemo(() => {
     if (!user || !previewOpen) return null;
-    const contest: Contest = SEED_CONTESTS.find((c) => c.scale === 'large')!;
+    const contest: Contest = SEED_CONTESTS[0];
     const { teams } = recommendTeams(user, SEED_USERS, contest, runClusterAnalysis(user, SEED_USERS));
     return teams[0] ? { contest, team: teams[0] } : null;
   }, [user, previewOpen]);
