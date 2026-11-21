@@ -6,6 +6,7 @@
 // 카드 12 / 패널 16 / 버튼·칩 알약 · 세그먼트·탭 = 연한 알약 안 흰 칩 · 대화상자 22 · 그림자는 떠 있는 것에만
 
 import Link from 'next/link';
+import { createPortal } from 'react-dom';
 import {
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
@@ -32,9 +33,10 @@ export function Icon({ name, filled, size = 24, className }: { name: string; fil
   );
 }
 
-type ButtonVariant = 'filled' | 'tonal' | 'outlined' | 'text' | 'elevated';
+type ButtonVariant = 'prominent' | 'filled' | 'tonal' | 'outlined' | 'text' | 'elevated';
 
 const buttonStyles: Record<ButtonVariant, string> = {
+  prominent: 'bg-primary text-on-primary hover:brightness-95',
   // 주요: 연한 파랑 + 진한 파랑 글자
   filled: 'bg-primary-container text-on-primary-container hover:bg-[#a8d7fa] dark:hover:bg-[#0b5a8f]',
   // 보조 강조: 연한 파랑 면
@@ -355,8 +357,8 @@ export function Dialog({
       document.body.style.overflow = prev;
     };
   }, [open, onClose]);
-  if (!open) return null;
-  return (
+  if (!open || typeof document === 'undefined') return null;
+  return createPortal(
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
       <div className="absolute inset-0 bg-scrim/50" onClick={onClose} />
       <div
@@ -378,7 +380,8 @@ export function Dialog({
         {actions && <div className="flex justify-end gap-2 px-6 pb-6 pt-4">{actions}</div>}
         {!actions && <div className="h-4" />}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

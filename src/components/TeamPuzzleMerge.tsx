@@ -58,8 +58,8 @@ export function TeamPuzzleMerge({ team, unlocked, pieceCodes }: { team: TeamCand
         <InfoTip align="start">응답 근거 태그예요. 군집 이름 대신, 실제로 비슷하거나 서로 채워 주는 응답을 보여 줘요.</InfoTip>
       </div>
 
-      <div className="flex items-start gap-3 rounded-m3-md bg-tertiary-container p-4 text-on-tertiary-container">
-        <Icon name="forum" className="mt-0.5" />
+      <div className="flex items-start gap-3 rounded-m3-md bg-surface p-4 text-on-surface">
+        <Icon name="forum" className="mt-0.5 text-tertiary" />
         <div>
           <p className="label-large">가장 큰 차이</p>
           <p className="body-medium">{team.biggestGapNote}</p>

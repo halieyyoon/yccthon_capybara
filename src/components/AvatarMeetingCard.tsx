@@ -21,7 +21,7 @@ export function AvatarMeetingCard({ result, loading, loadingStepText }: { result
       <div className="rounded-m3-lg bg-surface-container p-5">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <p className="title-medium text-on-surface">{result.agenda}</p>
-          <span className="rounded-m3-sm bg-tertiary-container px-2.5 py-1 label-medium text-on-tertiary-container">{result.chemistryBadge}</span>
+          <span className="rounded-m3-sm bg-surface-container-highest px-2.5 py-1 label-medium text-on-surface-variant">{result.chemistryBadge}</span>
         </div>
         <ol className="mt-4 space-y-3">
           {result.turns.map((t, i) => (

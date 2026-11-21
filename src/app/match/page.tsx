@@ -18,7 +18,7 @@ import { ClusterScatterPlot } from '@/components/ClusterScatterPlot';
 import { PuzzlePiece } from '@/components/PuzzlePiece';
 import { TeamPuzzleMerge } from '@/components/TeamPuzzleMerge';
 import { useHydrated, useOndoStore } from '@/store/useOndoStore';
-import { PIECE_TYPES, type PieceCode, edgesFromCode, nameI, pairReport, pieceOf } from '@/store/pieceTypes';
+import { PIECE_TYPES, type PieceCode, edgesFromCode, pairReport, pieceOf } from '@/store/pieceTypes';
 import type { UserProfile } from '@/types/ondo';
 
 const CATEGORY_LABEL: Record<Contest['category'], string> = {
@@ -53,7 +53,7 @@ function ContestRow({ c, selected, onClick }: { c: Contest; selected: boolean; o
         <p className="title-small">{c.title}</p>
         <p className="mt-0.5 body-small text-on-surface-variant">{CATEGORY_LABEL[c.category]}</p>
       </div>
-      <span className={cx('tabular shrink-0 label-medium', !selected && 'text-primary')}>{dday(c.deadline)}</span>
+      <span className={cx('tabular shrink-0 label-medium', !selected && 'text-on-surface-variant')}>{dday(c.deadline)}</span>
     </button>
   );
 }
@@ -142,7 +142,7 @@ function PairCompatView({ me, them, myCode, theirCode, onContinue }: { me: UserP
       </div>
 
       <Button size="lg" className="mt-4 w-full" onClick={onContinue}>
-        {nameI(theirName)}랑 팀 퍼즐 이어가기
+        추천 팀으로 돌아가기
       </Button>
       <p className="mt-2 flex items-center justify-center gap-1 body-small text-on-surface-variant">
         {them.nickname}님의 조각
@@ -158,7 +158,7 @@ function TeamOverview({ team, userId, codes, onOpenPair }: { team: TeamCandidate
 
   return (
     <div className="space-y-5">
-      <p className="-mb-3 flex items-center gap-1 label-medium text-on-surface-variant">
+      <p className="mb-2! flex items-center gap-1 label-medium text-on-surface-variant">
         추천 팀원
         <InfoTip align="start">팀원을 누르면 우리 둘이 어떻게 맞물리는지 볼 수 있어요.</InfoTip>
       </p>
@@ -179,7 +179,7 @@ function TeamOverview({ team, userId, codes, onOpenPair }: { team: TeamCandidate
               </div>
             </>
           );
-          const tile = 'flex min-w-0 items-center gap-2 rounded-m3-md px-2.5 py-2.5 @xl:flex-col @xl:py-3 @xl:text-center';
+          const tile = 'flex h-full min-w-0 items-center gap-2 rounded-m3-md px-2.5 py-2.5 @xl:flex-col @xl:py-3 @xl:text-center';
           return (
             <li key={member.id}>
               {isMe ? (
@@ -201,7 +201,7 @@ function TeamOverview({ team, userId, codes, onOpenPair }: { team: TeamCandidate
             <p className="mt-1 body-medium text-on-surface-variant">{reasons.join(' · ')}</p>
           )}
           {example && (
-            <p className="mt-2 body-small text-primary">
+            <p className="mt-2 body-small text-on-surface">
               <span className="font-semibold">{example.coveredByNickname}</span>의 {SKILL_CARD_BY_ID[example.strengthId].strength} 역량이{' '}
               <span className="font-semibold">{example.weaknessOwnerId === userId ? '내' : `${example.weaknessOwnerNickname}의`}</span> 약점을 보완해요.
             </p>
@@ -210,9 +210,9 @@ function TeamOverview({ team, userId, codes, onOpenPair }: { team: TeamCandidate
             <p className="mt-1 body-medium text-on-surface-variant">응답을 바탕으로 추천한 팀이에요.</p>
           )}
         </section>
-        <section className="min-w-0 rounded-m3-md bg-tertiary-container p-4 text-on-tertiary-container">
-          <h3 className="title-small">먼저 이야기할 점</h3>
-          <p className="mt-1 body-medium">{team.biggestGapNote}</p>
+        <section className="min-w-0 rounded-m3-md bg-surface p-4 text-on-surface">
+          <h3 className="flex items-center gap-2 title-small"><Icon name="forum" size={17} className="text-tertiary" />먼저 이야기할 점</h3>
+          <p className="mt-1 body-medium text-on-surface-variant">{team.biggestGapNote}</p>
         </section>
       </div>
     </div>
@@ -345,17 +345,9 @@ export default function MatchPage() {
                     <TeamOverview team={team} userId={user.id} codes={codes} onOpenPair={setPairId} />
 
                     <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center">
-                      <div className="flex items-center gap-2">
-                        <Button variant="text" icon="skip_next" onClick={() => passTeam(team.id)}>
-                          넘기기
-                        </Button>
-                        <InfoTip align="start">누가 먼저 요청했는지는 서로 보이지 않고, 넘겨도 알림은 가지 않아요. 모두 수락해야 실명과 CV가 열려요.</InfoTip>
-                      </div>
-                      <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:justify-end">
-                        <Button variant="outlined" icon="timer" onClick={() => router.push(`/pilot/${team.id}`)}>
-                          20분 파일럿
-                        </Button>
+                      <div className="flex flex-1 flex-col gap-2 sm:order-2 sm:flex-row-reverse">
                         <Button
+                          variant="prominent"
                           icon="waving_hand"
                           onClick={() => {
                             setRequestingId(team.id);
@@ -364,6 +356,15 @@ export default function MatchPage() {
                         >
                           바로 만나볼래요
                         </Button>
+                        <Button variant="outlined" icon="timer" onClick={() => router.push(`/pilot/${team.id}`)}>
+                          20분 파일럿
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="text" icon="skip_next" onClick={() => passTeam(team.id)}>
+                          넘기기
+                        </Button>
+                        <InfoTip align="start">누가 먼저 요청했는지는 서로 보이지 않고, 넘겨도 알림은 가지 않아요. 모두 수락해야 실명과 CV가 열려요.</InfoTip>
                       </div>
                     </div>
                   </div>

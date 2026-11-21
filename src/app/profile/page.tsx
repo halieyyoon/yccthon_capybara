@@ -62,7 +62,7 @@ function TeamDropView({
   );
   return (
     <div>
-      <p className="inline-flex rounded-full bg-tertiary-container px-3 py-1 label-medium text-on-tertiary-container">
+      <p className="inline-flex rounded-full bg-surface-container-highest px-3 py-1 label-medium text-on-surface-variant">
         금요일 밤 10시 · 이번 주 팀 드롭 ({dropAt.getMonth() + 1}/{dropAt.getDate()})
       </p>
       <h3 className="mt-2 headline-small text-on-surface">퍼즐이 완성됐어요!</h3>
