@@ -1,9 +1,10 @@
 'use client';
 
 // 소유: 규혁 — 2) `/onboarding` 2분 필수 온보딩 (+ 선택 심화)
-// 구조(퍼즐 궁합 매트릭스 시안): ① ‘내 조각’ 4문항 — 한 화면 한 문항 · 2지선다 · 답할 때마다 조각 한 변 완성
-//   → ② 결과 ‘내 조각이 나왔어요!’(16유형 · 딱 맞물리는 짝 · 포개지는 쌍둥이) → ③ 매칭 정보(아래 Step 1~4)
-// Step 1~3 필수, Step 4(성격 5·갈등 5) 선택. 건너뛰면 10개 차원은 null.
+// 구조(퍼즐 궁합 매트릭스 시안): ① ‘내 조각’ 16문항 — 한 화면 한 문항 · 2지선다 · 답할수록 조각 완성
+//   (목표·AI 규범·작업 방식·역량·장단점 카드·협업 지뢰도 이 답으로 채움 → 리커트·역량 화면 없음)
+//   → ② 결과 ‘내 조각이 나왔어요!’(16유형 · 딱 맞물리는 짝 · 포개지는 쌍둥이) → ③ 기본 정보 → ④ 성격·갈등(선택)
+// ④를 건너뛰면 성격·갈등 10개 차원은 null.
 // 끝나면 CV 작성으로 이어짐(프로필 = 퍼즐 + CV, 05 workflow) — CV는 건너뛸 수 있음.
 
 import { useRouter } from 'next/navigation';
@@ -35,7 +36,7 @@ import { Button, Chip, cx, Icon, IconButton, InfoTip, LinearProgress, SegmentedB
 import { PuzzlePiece } from '@/components/PuzzlePiece';
 import { useOndoStore } from '@/store/useOndoStore';
 import {
-  PIECE_QUESTIONS,
+  PIECE_SURVEY,
   PIECE_TYPES,
   type PieceAnswers,
   type PieceCode,
@@ -43,6 +44,7 @@ import {
   edgesFromAnswers,
   edgesFromCode,
   emptyPieceAnswers,
+  featuresFromSurvey,
   perfectMatch,
   quadrantOf,
   tagsOf,
@@ -50,9 +52,7 @@ import {
 
 type Answers = Partial<Record<FeatureKey, number>>;
 
-const STEP_TITLES = ['기본 정보', '목표 · AI · 일하는 방식', '역량과 퍼즐 카드', '조금 더 (선택)'];
-const SKILL_KEYS: RoleId[] = ['planning', 'frontend', 'backend', 'design', 'data_ai', 'presentation'];
-const REQUIRED_LIKERT = SURVEY_QUESTIONS.required.flatMap((g) => g.items);
+const STEP_TITLES = ['기본 정보', '조금 더 (선택)'];
 const OPTIONAL_LIKERT = SURVEY_QUESTIONS.optional.flatMap((g) => g.items);
 
 function LikertRow({ q, value, onChange, index }: { q: SurveyQuestion; value: number | undefined; onChange: (v: number) => void; index: number }) {
@@ -94,23 +94,23 @@ function PieceQuestionScreen({
 }: {
   index: number;
   answers: PieceAnswers;
-  onPick: (letter: PieceAnswers[number]) => void;
+  onPick: (choice: 0 | 1) => void;
   onNext: () => void;
   onBack: () => void;
 }) {
-  const q = PIECE_QUESTIONS[index];
+  const q = PIECE_SURVEY[index];
   const picked = answers[index];
   return (
     <div className="flex min-h-dvh flex-col bg-page">
       <header className="mx-auto flex h-16 w-full max-w-xl items-center gap-3 px-4">
         <IconButton icon="arrow_back" label={index === 0 ? '나가기' : '이전 질문'} onClick={onBack} />
-        <LinearProgress value={(index + (picked ? 1 : 0)) / PIECE_QUESTIONS.length} className="flex-1" />
+        <LinearProgress value={(index + (picked !== null ? 1 : 0)) / PIECE_SURVEY.length} className="flex-1" />
         <span className="tabular label-large text-on-surface-variant">
-          {index + 1}/{PIECE_QUESTIONS.length}
+          {index + 1}/{PIECE_SURVEY.length}
         </span>
       </header>
       <main key={index} className="page-enter mx-auto flex w-full max-w-xl flex-1 flex-col px-4 pb-6">
-        <p className="mt-2 label-large text-primary">{q.ordinal}</p>
+        <p className="mt-2 label-large text-primary">질문 {index + 1}</p>
         <h1 className="mt-1 headline-medium">{q.question}</h1>
 
         <div className="mt-6 grid place-items-center rounded-m3-xl bg-surface py-6">
@@ -119,15 +119,15 @@ function PieceQuestionScreen({
         </div>
 
         <div className="mt-4 space-y-3" role="radiogroup" aria-label={q.question}>
-          {q.options.map((o) => {
-            const sel = picked === o.letter;
+          {q.options.map((o, oi) => {
+            const sel = picked === oi;
             return (
               <button
-                key={o.letter}
+                key={oi}
                 type="button"
                 role="radio"
                 aria-checked={sel}
-                onClick={() => onPick(o.letter)}
+                onClick={() => onPick(oi as 0 | 1)}
                 className={cx(
                   'w-full rounded-m3-lg px-5 py-4 text-left transition-[background-color,box-shadow] duration-200',
                   sel ? 'bg-secondary-container text-on-secondary-container shadow-[0_0_0_2px_var(--md-sys-color-secondary)]' : 'bg-surface hover:bg-surface-container',
@@ -141,8 +141,8 @@ function PieceQuestionScreen({
 
         <div className="mt-auto pt-8">
           <p className="mb-3 text-center body-small text-on-surface-variant">정답은 없어요. 반대여도, 똑같아도 다 맞물려요.</p>
-          <Button size="lg" className="w-full" disabled={!picked} onClick={onNext}>
-            {index === PIECE_QUESTIONS.length - 1 ? '내 조각 보기' : '다음 질문'}
+          <Button size="lg" className="w-full" disabled={picked === null} onClick={onNext}>
+            {index === PIECE_SURVEY.length - 1 ? '내 조각 보기' : '다음 질문'}
           </Button>
         </div>
       </main>
@@ -250,10 +250,6 @@ export default function OnboardingPage() {
   const [roles, setRoles] = useState<RoleId[]>([]);
 
   const [answers, setAnswers] = useState<Answers>({});
-  const [skills, setSkills] = useState<Partial<Record<RoleId, number>>>({});
-  const [strengths, setStrengths] = useState<SkillCardId[]>([]);
-  const [weaknesses, setWeaknesses] = useState<SkillCardId[]>([]);
-  const [deals, setDeals] = useState<DealBreakerId[]>([]);
   const [deepOpen, setDeepOpen] = useState(false);
 
   useEffect(() => {
@@ -269,41 +265,17 @@ export default function OnboardingPage() {
     set((list) => (list.includes(v) ? list.filter((x) => x !== v) : list.length < max ? [...list, v] : list));
 
   const missing: string[] = useMemo(() => {
-    if (step === 0) {
-      const m: string[] = [];
-      if (!nickname.trim()) m.push('닉네임');
-      if (!major.trim()) m.push('전공');
-      if (!mode) m.push('온도');
-      if (!weeklyHours) m.push('주당 시간');
-      if (roles.length === 0) m.push('희망 역할');
-      return m;
-    }
-    if (step === 1) {
-      const left = REQUIRED_LIKERT.filter((q) => answers[q.key] === undefined).length;
-      return left ? [`${left}문항`] : [];
-    }
-    if (step === 2) {
-      const m: string[] = [];
-      const leftSkills = SKILL_KEYS.filter((k) => skills[k] === undefined).length;
-      if (leftSkills) m.push(`역량 ${leftSkills}`);
-      if (strengths.length < 2) m.push(`장점 ${2 - strengths.length}`);
-      if (weaknesses.length < 2) m.push(`약점 ${2 - weaknesses.length}`);
-      if (deals.length < 1) m.push('지뢰');
-      return m;
-    }
-    return [];
-  }, [step, nickname, major, mode, weeklyHours, roles, answers, skills, strengths, weaknesses, deals]);
+    if (step !== 0) return [];
+    const m: string[] = [];
+    if (!nickname.trim()) m.push('닉네임');
+    if (!major.trim()) m.push('전공');
+    if (!mode) m.push('온도');
+    if (!weeklyHours) m.push('주당 시간');
+    if (roles.length === 0) m.push('희망 역할');
+    return m;
+  }, [step, nickname, major, mode, weeklyHours, roles]);
 
-  const answered = useMemo(() => {
-    const req =
-      [nickname.trim(), major.trim(), mode, weeklyHours, roles.length ? 1 : null].filter(Boolean).length +
-      REQUIRED_LIKERT.filter((q) => answers[q.key] !== undefined).length +
-      SKILL_KEYS.filter((k) => skills[k] !== undefined).length +
-      (strengths.length === 2 ? 1 : 0) +
-      (weaknesses.length === 2 ? 1 : 0) +
-      (deals.length ? 1 : 0);
-    return req / (5 + REQUIRED_LIKERT.length + 6 + 3);
-  }, [nickname, major, mode, weeklyHours, roles, answers, skills, strengths, weaknesses, deals]);
+  const answered = [nickname.trim(), major.trim(), mode, weeklyHours, roles.length ? 1 : null].filter(Boolean).length / 5;
 
   const finish = (withOptional: boolean) => {
     if (!mode || !weeklyHours) return;
@@ -312,14 +284,14 @@ export default function OnboardingPage() {
       if (raw === undefined) return null;
       return q.reverse ? 6 - raw : raw;
     };
-    const base = Object.fromEntries(REQUIRED_LIKERT.map((q) => [q.key, val(q)]));
+    const survey = featuresFromSurvey(pieceAnswers);
     const optional = Object.fromEntries(
       OPTIONAL_FEATURE_KEYS.map((k) => {
         const q = OPTIONAL_LIKERT.find((x) => x.key === k)!;
         return [k, withOptional ? val(q) : null];
       }),
     );
-    const features27 = { ...optional, ...base, ...skills } as unknown as Features27;
+    const features27 = { ...optional, ...survey.features } as unknown as Features27;
     let email = 'me@yonsei.ac.kr';
     try {
       email = sessionStorage.getItem('ondo_signup_email') ?? email;
@@ -336,9 +308,9 @@ export default function OnboardingPage() {
       preferredRoles: roles,
       hardConstraints: { weeklyHours, offlineAvailable: offline, nightWorkAvailable: night },
       collabType: deriveCollabType(features27),
-      strengths: [strengths[0], strengths[1]],
-      weaknesses: [weaknesses[0], weaknesses[1]],
-      dealBreakers: deals,
+      strengths: survey.strengths,
+      weaknesses: survey.weaknesses,
+      dealBreakers: survey.dealBreakers,
       weeklyDropEnabled: true,
       cv: {
         realName: '',
@@ -365,15 +337,15 @@ export default function OnboardingPage() {
       <PieceQuestionScreen
         index={pieceStep}
         answers={pieceAnswers}
-        onPick={(letter) =>
+        onPick={(choice) =>
           setPieceAnswers((a) => {
             const next = [...a] as PieceAnswers;
-            next[pieceStep] = letter;
+            next[pieceStep] = choice;
             return next;
           })
         }
         onNext={() => {
-          if (pieceStep < PIECE_QUESTIONS.length - 1) setPieceStep(pieceStep + 1);
+          if (pieceStep < PIECE_SURVEY.length - 1) setPieceStep(pieceStep + 1);
           else if (pieceCode) {
             setMyPiece(pieceCode);
             setPhase('result');
@@ -413,7 +385,7 @@ export default function OnboardingPage() {
             onClick={() => (step === 0 ? setPhase('result') : deepOpen ? setDeepOpen(false) : setStep(step - 1))}
           />
           <div className="min-w-0">
-            <p className="label-small text-on-surface-variant">매칭 정보 · {step + 1}/4</p>
+            <p className="label-small text-on-surface-variant">매칭 정보 · {step + 1}/2</p>
             <h1 className="truncate title-large">{STEP_TITLES[step]}</h1>
           </div>
           <p className="tabular ml-auto rounded-full bg-surface px-3 py-1 label-large text-on-surface-variant shadow-[0_0_0_1px_var(--md-sys-color-outline-variant)]" aria-label="경과 시간">
@@ -421,7 +393,7 @@ export default function OnboardingPage() {
           </p>
         </div>
         <div className="mx-auto max-w-3xl px-4">
-          <LinearProgress value={step === 3 ? 1 : answered} />
+          <LinearProgress value={step === 1 ? 1 : answered} />
         </div>
       </header>
 
@@ -509,111 +481,7 @@ export default function OnboardingPage() {
           </>
         )}
 
-        {step === 1 &&
-          SURVEY_QUESTIONS.required.map((g, gi) => (
-            <Section key={g.group} title={g.title} tip={gi === 0 ? '정답은 없어요. 지금 이 대회에 대한 생각에 가장 가까운 숫자를 고르세요.' : undefined}>
-              <div className="-my-2 space-y-1">
-                {g.items.map((q) => {
-                  qIndex += 1;
-                  return <LikertRow key={q.key} q={q} index={qIndex} value={answers[q.key]} onChange={(v) => setAnswers((a) => ({ ...a, [q.key]: v }))} />;
-                })}
-              </div>
-            </Section>
-          ))}
-
-        {step === 2 && (
-          <>
-            <Section title="지금 할 수 있는 정도" tip="자기 평가예요. 0은 해 본 적 없음, 4는 팀을 이끌 수 있는 정도.">
-              <div className="-my-1 space-y-1">
-                {ROLES.map((r) => (
-                  <div key={r.id} className="grid items-center gap-2 py-3 sm:grid-cols-[96px_1fr]">
-                    <span className="title-small">{r.label}</span>
-                    <SegmentedButton
-                      ariaLabel={`${r.label} 숙련도`}
-                      dense
-                      value={skills[r.id] ?? null}
-                      onChange={(v) => setSkills((sk) => ({ ...sk, [r.id]: v }))}
-                      options={SKILL_LEVEL_LABELS.map((l, i) => ({
-                        value: i,
-                        label: (
-                          <span>
-                            <span className="tabular">{i}</span>
-                            <span className="hidden md:inline"> {l}</span>
-                          </span>
-                        ),
-                      }))}
-                    />
-                  </div>
-                ))}
-              </div>
-            </Section>
-
-            <Section title="퍼즐 카드" tip="장점은 퍼즐의 돌기(凸), 약점은 홈(凹)이 돼요. 내 홈을 채워 줄 사람을 찾을 때 써요.">
-              <div className="grid gap-6 md:grid-cols-2">
-                <div>
-                  <p className="mb-2 label-medium text-on-surface-variant">
-                    凸 장점 <span className="tabular">{strengths.length}/2</span>
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {SKILL_CARDS.map((c) => (
-                      <Chip
-                        key={c.id}
-                        label={c.strength}
-                        selected={strengths.includes(c.id)}
-                        disabled={weaknesses.includes(c.id) || (!strengths.includes(c.id) && strengths.length >= 2)}
-                        onClick={() => toggle(c.id, 2, setStrengths)}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="mb-2 label-medium text-on-surface-variant">
-                    凹 약점 <span className="tabular">{weaknesses.length}/2</span>
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {SKILL_CARDS.map((c) => (
-                      <Chip
-                        key={c.id}
-                        label={c.weakness}
-                        selected={weaknesses.includes(c.id)}
-                        disabled={strengths.includes(c.id) || (!weaknesses.includes(c.id) && weaknesses.length >= 2)}
-                        onClick={() => toggle(c.id, 2, setWeaknesses)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </Section>
-
-            <Section title="이것만은 힘들어요 · 1~2" tip="협업 지뢰는 상대에게 그대로 보이지 않고, 충돌 가능성을 확인하는 데만 써요.">
-              <div className="grid gap-2 sm:grid-cols-2">
-                {DEAL_BREAKERS.map((d) => {
-                  const sel = deals.includes(d.id);
-                  const disabled = !sel && deals.length >= 2;
-                  return (
-                    <button
-                      key={d.id}
-                      type="button"
-                      disabled={disabled}
-                      aria-pressed={sel}
-                      title={d.detail}
-                      onClick={() => toggle(d.id, 2, setDeals)}
-                      className={cx(
-                        'flex min-h-12 items-center gap-3 rounded-m3-md px-4 text-left transition-colors duration-200 disabled:opacity-40',
-                        sel ? 'bg-error-container text-on-error-container' : 'bg-surface-container-low hover:bg-surface-container',
-                      )}
-                    >
-                      <Icon name={sel ? 'check_circle' : 'radio_button_unchecked'} filled={sel} size={20} />
-                      <span className="title-small">{d.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </Section>
-          </>
-        )}
-
-        {step === 3 && !deepOpen && (
+        {step === 1 && !deepOpen && (
           <div className="rounded-m3-md bg-surface px-6 py-10 text-center">
             <p className="tabular display-small text-primary">
               {mm}:{ss}
@@ -634,7 +502,7 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {step === 3 &&
+        {step === 1 &&
           deepOpen &&
           SURVEY_QUESTIONS.optional.map((g, gi) => (
             <Section key={g.group} title={g.title} tip={gi === 0 ? '검증 전 임시 문항이에요. 진단이 아니라 대화 주제를 찾는 데 써요.' : undefined}>
@@ -647,13 +515,13 @@ export default function OnboardingPage() {
           ))}
       </main>
 
-      {(step < 3 || deepOpen) && (
+      {(step < 1 || deepOpen) && (
         <footer className="fixed inset-x-0 bottom-0 z-30 bg-surface shadow-[0_-1px_3px_rgba(32,33,36,.08)]">
           <div className="mx-auto flex max-w-3xl items-center gap-4 px-4 py-3">
             <p className="min-w-0 flex-1 truncate body-medium text-on-surface-variant">
-              {step === 3 ? (optionalLeft ? `${optionalLeft}문항 남음` : '모두 답했어요') : missing.length ? `남음 · ${missing.join(', ')}` : ''}
+              {step === 1 ? (optionalLeft ? `${optionalLeft}문항 남음` : '모두 답했어요') : missing.length ? `남음 · ${missing.join(', ')}` : ''}
             </p>
-            {step < 3 ? (
+            {step < 1 ? (
               <Button icon="arrow_forward" disabled={missing.length > 0} onClick={() => setStep(step + 1)}>
                 다음
               </Button>

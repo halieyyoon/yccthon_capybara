@@ -1,82 +1,293 @@
-// 소유: 규혁 (src/store/) — “내 조각” 4문항 설문과 16유형 (퍼즐 궁합 매트릭스 시안 구조)
-// 4축 × 2지선다 = 16유형. 답 하나가 퍼즐 조각의 한 변(볼록/오목)을 정합니다.
-// ‘딱 맞물리는 짝’ = 네 변이 전부 반대(모든 축 반대), ‘포개지는 쌍둥이’ = 같은 유형.
-// 매칭 엔진(27차원·CollabType)과는 별개로, 프로필 정체성과 궁합 설명에 씁니다. (심리검사 아님)
+// 소유: 규혁 (src/store/) — ‘내 조각’ 설문 16문항과 16유형 (퍼즐 궁합 매트릭스 시안 구조)
+// 한 화면 한 문항 · 2지선다 16개. 12문항이 퍼즐 4축(축마다 3표, 다수결)을 정하고,
+// 모든 답이 매칭용 27차원 응답(목표·AI 규범·작업 방식·역량)과 장단점 카드·협업 지뢰도 채웁니다.
+// → 1~5점 리커트 화면과 ‘역량과 퍼즐 카드’ 화면을 대신합니다. (2지선다라 값은 2/4·1/5처럼 거칠게 들어감)
+// ‘딱 맞물리는 짝’ = 네 변이 전부 반대, ‘포개지는 쌍둥이’ = 같은 유형. 심리검사 아님.
 // 캐릭터 이름은 시안 — 뚝딱·척척·와다닥·꼼꼼은 시안 그대로, 나머지는 같은 결로 지은 초안입니다.
 
 import type { EdgeType } from '@/components/PuzzlePiece';
+import type { DealBreakerId, Features27, RoleId, SkillCardId } from '@/types/ondo';
+import { SKILL_CARD_BY_ID } from '@/data/constants';
 
 export type AxisId = 'start' | 'role' | 'decide' | 'style';
 export type PieceLetter = 'I' | 'P' | 'M' | 'S' | 'G' | 'E' | 'A' | 'W';
 /** 예: 'IMGA' — 시작(I/P) · 맡는 일(M/S) · 결정(G/E) · 스타일(A/W) */
 export type PieceCode = `${'I' | 'P'}${'M' | 'S'}${'G' | 'E'}${'A' | 'W'}`;
 
-export interface PieceOption {
+export interface AxisSide {
   letter: PieceLetter;
-  /** 답 카드 제목 */
-  answer: string;
-  /** 결과 태그 · 궁합 화면 축 라벨 */
   tag: string;
-  /** 이 답이 만드는 변 모양 (1 볼록 · -1 오목) */
+  /** 1 볼록 · -1 오목 */
   edge: 1 | -1;
 }
 
-export interface PieceQuestion {
-  axis: AxisId;
-  axisLabel: string;
-  /** 위 0 · 오른쪽 1 · 아래 2 · 왼쪽 3 */
-  side: 0 | 1 | 2 | 3;
-  ordinal: string;
-  question: string;
-  options: [PieceOption, PieceOption];
+/** 퍼즐 4변 = 4축. side: 위 0 · 오른쪽 1 · 아래 2 · 왼쪽 3 */
+export const PIECE_AXES: { axis: AxisId; axisLabel: string; side: 0 | 1 | 2 | 3; options: [AxisSide, AxisSide] }[] = [
+  { axis: 'start', axisLabel: '시작', side: 0, options: [{ letter: 'I', tag: '아이디어부터', edge: 1 }, { letter: 'P', tag: '계획부터', edge: -1 }] },
+  { axis: 'role', axisLabel: '맡는 일', side: 1, options: [{ letter: 'M', tag: '직접 만들기', edge: 1 }, { letter: 'S', tag: '말로 설득', edge: -1 }] },
+  { axis: 'decide', axisLabel: '결정', side: 2, options: [{ letter: 'E', tag: '근거로 결정', edge: 1 }, { letter: 'G', tag: '감으로 결정', edge: -1 }] },
+  { axis: 'style', axisLabel: '스타일', side: 3, options: [{ letter: 'A', tag: '혼자 몰입', edge: 1 }, { letter: 'W', tag: '같이 붙어서', edge: -1 }] },
+];
+
+type FeatureKey = keyof Features27;
+
+export interface SurveyOption {
+  answer: string;
+  /** 퍼즐 축 한 표 */
+  vote?: PieceLetter;
+  /** 매칭용 27차원 값(같은 키는 평균) */
+  set?: Partial<Record<FeatureKey, number>>;
+  /** 역할 성향(역량 기본값) */
+  roleBias?: 'M' | 'S';
+  strength?: SkillCardId;
+  weakness?: SkillCardId;
+  dealBreaker?: DealBreakerId;
 }
 
-export const PIECE_QUESTIONS: PieceQuestion[] = [
+export interface SurveyQuestion {
+  question: string;
+  options: [SurveyOption, SurveyOption];
+}
+
+/** 16문항 — 축이 번갈아 나오도록 배치해 조각이 고르게 완성됩니다 */
+export const PIECE_SURVEY: SurveyQuestion[] = [
   {
-    axis: 'start',
-    axisLabel: '시작',
-    side: 0,
-    ordinal: '첫 번째 질문',
     question: '새 프로젝트 첫날. 너는 뭐부터 해?',
     options: [
-      { letter: 'I', answer: '아이디어부터 막 던져', tag: '아이디어부터', edge: 1 },
-      { letter: 'P', answer: '계획표부터 짜', tag: '계획부터', edge: -1 },
+      { answer: '아이디어부터 막 던져', vote: 'I', set: { prototyping_preference: 4, decision_structure_preference: 2 } },
+      { answer: '계획표부터 짜', vote: 'P', set: { prototyping_preference: 2, decision_structure_preference: 4 } },
     ],
   },
   {
-    axis: 'role',
-    axisLabel: '맡는 일',
-    side: 1,
-    ordinal: '두 번째 질문',
     question: '팀에서 제일 맡고 싶은 일은?',
     options: [
-      { letter: 'M', answer: '내 손으로 직접 만들기', tag: '직접 만들기', edge: 1 },
-      { letter: 'S', answer: '만든 걸 말로 설득하기', tag: '말로 설득', edge: -1 },
+      { answer: '내 손으로 직접 만들기', vote: 'M', roleBias: 'M' },
+      { answer: '만든 걸 말로 설득하기', vote: 'S', roleBias: 'S' },
     ],
   },
   {
-    axis: 'decide',
-    axisLabel: '결정',
-    side: 2,
-    ordinal: '세 번째 질문',
     question: '회의에서 A안, B안이 팽팽해. 너는 보통 어떻게 정해?',
     options: [
-      { letter: 'E', answer: '자료부터 찾아보고 정해', tag: '근거로 결정', edge: 1 },
-      { letter: 'G', answer: '감 오는 쪽으로 바로 가', tag: '감으로 결정', edge: -1 },
+      { answer: '자료부터 찾아보고 정해', vote: 'E', set: { quality_priority: 4, risk_appetite: 2 } },
+      { answer: '감 오는 쪽으로 바로 가', vote: 'G', set: { quality_priority: 2, risk_appetite: 4 } },
     ],
   },
   {
-    axis: 'style',
-    axisLabel: '스타일',
-    side: 3,
-    ordinal: '네 번째 질문',
     question: '마감 사흘 전. 너는 어떻게 일해?',
     options: [
-      { letter: 'A', answer: '혼자 몰입해서 끝내', tag: '혼자 몰입', edge: 1 },
-      { letter: 'W', answer: '같이 붙어서 해', tag: '같이 붙어서', edge: -1 },
+      { answer: '혼자 몰입해서 끝내', vote: 'A' },
+      { answer: '같이 붙어서 해', vote: 'W' },
+    ],
+  },
+  {
+    question: '이번 대회, 솔직히 뭐가 더 중요해?',
+    options: [
+      { answer: '수상이나 포트폴리오', set: { winning_orientation: 5, learning_priority: 2 } },
+      { answer: '새로 배우는 경험', set: { winning_orientation: 2, learning_priority: 5 } },
+    ],
+  },
+  {
+    question: '기획서가 반쯤 비었는데 시간이 없어.',
+    options: [
+      { answer: '일단 만들면서 채워', vote: 'I', set: { prototyping_preference: 5, risk_appetite: 4 } },
+      { answer: '빈칸부터 다 채우고 시작해', vote: 'P', set: { prototyping_preference: 2, risk_appetite: 2 } },
+    ],
+  },
+  {
+    question: '둘 중 더 자신 있는 건?',
+    options: [
+      { answer: '화면이나 기능을 직접 구현하기', vote: 'M', roleBias: 'M', strength: 'frontend' },
+      { answer: '발표하고 질문에 답하기', vote: 'S', roleBias: 'S', strength: 'pitching' },
+    ],
+  },
+  {
+    question: 'AI가 만든 코드나 글, 어떻게 써?',
+    options: [
+      { answer: '한 줄씩 확인하고 써', vote: 'E', set: { ai_verification_strictness: 5, ai_use_permissiveness: 2 } },
+      { answer: '잘 돌아가면 바로 써', vote: 'G', set: { ai_verification_strictness: 2, ai_use_permissiveness: 5 } },
+    ],
+  },
+  {
+    question: 'AI를 어디에 썼는지는?',
+    options: [
+      { answer: '각자 알아서 쓰면 돼', vote: 'A', set: { ai_disclosure_preference: 2 } },
+      { answer: '팀에 다 공유해야 해', vote: 'W', set: { ai_disclosure_preference: 5 } },
+    ],
+  },
+  {
+    question: '둘 중 더 자신 없는 건?',
+    options: [
+      { answer: '디자인 감각', weakness: 'ui_design' },
+      { answer: '글 정리와 문서화', weakness: 'copywriting' },
+    ],
+  },
+  {
+    question: '팀 규칙은 언제 정하는 게 좋아?',
+    options: [
+      { answer: '하다 보면 자연스럽게 생겨', vote: 'I', set: { decision_structure_preference: 2 } },
+      { answer: '시작 전에 딱 정해 둬', vote: 'P', set: { decision_structure_preference: 5 } },
+    ],
+  },
+  {
+    question: '둘 중 더 자신 있는 건?',
+    options: [
+      { answer: '데이터 분석이나 AI 툴 다루기', vote: 'M', roleBias: 'M', strength: 'data_analysis' },
+      { answer: '장표 구성과 스토리라인', vote: 'S', roleBias: 'S', strength: 'slide_story' },
+    ],
+  },
+  {
+    question: '마감 30분 전, 버그 하나가 남았어.',
+    options: [
+      { answer: '기능을 빼더라도 완성도부터', vote: 'E', set: { quality_priority: 5, delivery_priority: 5 } },
+      { answer: '일단 다 넣고 제출해', vote: 'G', set: { quality_priority: 2, delivery_priority: 3, risk_appetite: 5 } },
+    ],
+  },
+  {
+    question: '대회가 끝나면 이 팀은?',
+    options: [
+      { answer: '결과 나오면 각자 갈 길', vote: 'A', set: { continuation_intent: 2 } },
+      { answer: '계속 같이 이어가고 싶어', vote: 'W', set: { continuation_intent: 5 } },
+    ],
+  },
+  {
+    question: '둘 중 더 자신 없는 건?',
+    options: [
+      { answer: '서버나 데이터 연결', weakness: 'backend' },
+      { answer: '마감과 일정 관리', weakness: 'pm_schedule' },
+    ],
+  },
+  {
+    question: '둘 중 더 못 참는 건?',
+    options: [
+      { answer: '하루 넘게 연락이 끊기는 것', dealBreaker: 'ghosting' },
+      { answer: '이해 없이 AI 결과를 붙여 넣는 것', dealBreaker: 'blind_ai_copy' },
     ],
   },
 ];
+
+/** 답: 문항마다 고른 선택지 번호(0 · 1), 안 고르면 null */
+export type PieceAnswers = (0 | 1 | null)[];
+export const emptyPieceAnswers = (): PieceAnswers => PIECE_SURVEY.map(() => null);
+
+function votesByAxis(a: PieceAnswers): PieceLetter[][] {
+  const votes: PieceLetter[][] = [[], [], [], []];
+  a.forEach((pick, i) => {
+    if (pick === null) return;
+    const v = PIECE_SURVEY[i].options[pick].vote;
+    if (!v) return;
+    const axis = PIECE_AXES.findIndex((x) => x.options.some((o) => o.letter === v));
+    votes[axis].push(v);
+  });
+  return votes;
+}
+
+/** 축별 다수결. 동점이면 마지막 표를 따름 */
+function majority(axis: number, votes: PieceLetter[]): PieceLetter | null {
+  if (!votes.length) return null;
+  const [a, b] = PIECE_AXES[axis].options.map((o) => votes.filter((v) => v === o.letter).length);
+  if (a !== b) return a > b ? PIECE_AXES[axis].options[0].letter : PIECE_AXES[axis].options[1].letter;
+  return votes[votes.length - 1];
+}
+
+export function codeFromAnswers(a: PieceAnswers): PieceCode | null {
+  if (a.some((x) => x === null)) return null;
+  const letters = votesByAxis(a).map((v, i) => majority(i, v));
+  return letters.every(Boolean) ? (letters.join('') as PieceCode) : null;
+}
+
+/** 지금까지의 답으로 변 모양을 그림 — 아직 표가 없는 축은 평평(0) */
+export function edgesFromAnswers(a: PieceAnswers): [EdgeType, EdgeType, EdgeType, EdgeType] {
+  const edges: [EdgeType, EdgeType, EdgeType, EdgeType] = [0, 0, 0, 0];
+  votesByAxis(a).forEach((v, i) => {
+    const m = majority(i, v);
+    const o = PIECE_AXES[i].options.find((x) => x.letter === m);
+    if (o) edges[PIECE_AXES[i].side] = o.edge;
+  });
+  return edges;
+}
+
+export function edgesFromCode(code: PieceCode): [EdgeType, EdgeType, EdgeType, EdgeType] {
+  const edges: [EdgeType, EdgeType, EdgeType, EdgeType] = [0, 0, 0, 0];
+  PIECE_AXES.forEach((ax, i) => {
+    edges[ax.side] = ax.options.find((o) => o.letter === code[i])!.edge;
+  });
+  return edges;
+}
+
+/** 네 변이 전부 반대인 유형 */
+export function perfectMatch(code: PieceCode): PieceCode {
+  return PIECE_AXES.map((ax, i) => ax.options.find((o) => o.letter !== code[i])!.letter).join('') as PieceCode;
+}
+
+export function tagsOf(code: PieceCode): string[] {
+  return PIECE_AXES.map((ax, i) => ax.options.find((o) => o.letter === code[i])!.tag);
+}
+
+/** 두 조각이 맞물리는 변 수 (반대인 축 수) */
+export function interlockCount(a: PieceCode, b: PieceCode) {
+  return [0, 1, 2, 3].filter((i) => a[i] !== b[i]).length;
+}
+
+export function quadrantOf(code: PieceCode) {
+  return QUADRANT[code.slice(0, 2)];
+}
+
+export interface SurveyResult {
+  /** 필수 17차원(목표 4 · AI 규범 3 · 작업 방식 4 · 역량 6). 성격·갈등 10차원은 별도(선택) */
+  features: Pick<
+    Features27,
+    | 'winning_orientation' | 'learning_priority' | 'delivery_priority' | 'continuation_intent'
+    | 'ai_use_permissiveness' | 'ai_verification_strictness' | 'ai_disclosure_preference'
+    | 'prototyping_preference' | 'risk_appetite' | 'quality_priority' | 'decision_structure_preference'
+    | RoleId
+  >;
+  strengths: [SkillCardId, SkillCardId];
+  weaknesses: [SkillCardId, SkillCardId];
+  dealBreakers: DealBreakerId[];
+}
+
+const REQUIRED_LIKERT_KEYS: FeatureKey[] = [
+  'winning_orientation', 'learning_priority', 'delivery_priority', 'continuation_intent',
+  'ai_use_permissiveness', 'ai_verification_strictness', 'ai_disclosure_preference',
+  'prototyping_preference', 'risk_appetite', 'quality_priority', 'decision_structure_preference',
+];
+
+/** 16문항 답 → 매칭용 필수 17차원 + 장단점 카드 + 협업 지뢰 */
+export function featuresFromSurvey(a: PieceAnswers): SurveyResult {
+  const sums: Partial<Record<FeatureKey, number[]>> = {};
+  let makeBias = 0;
+  const strengths: SkillCardId[] = [];
+  const weaknesses: SkillCardId[] = [];
+  const dealBreakers: DealBreakerId[] = [];
+  a.forEach((pick, i) => {
+    if (pick === null) return;
+    const o = PIECE_SURVEY[i].options[pick];
+    for (const [k, v] of Object.entries(o.set ?? {})) (sums[k as FeatureKey] ??= []).push(v as number);
+    if (o.roleBias) makeBias += o.roleBias === 'M' ? 1 : -1;
+    if (o.strength) strengths.push(o.strength);
+    if (o.weakness) weaknesses.push(o.weakness);
+    if (o.dealBreaker) dealBreakers.push(o.dealBreaker);
+  });
+  const likert = Object.fromEntries(
+    REQUIRED_LIKERT_KEYS.map((k) => {
+      const vals = sums[k];
+      return [k, vals?.length ? Math.round((vals.reduce((x, y) => x + y, 0) / vals.length) * 10) / 10 : 3];
+    }),
+  );
+  // 역량 0~4: 역할 성향으로 기본값 → 장점 카드 축은 4, 약점 카드 축은 1
+  const maker = makeBias >= 0;
+  const skills: Record<RoleId, number> = maker
+    ? { planning: 2, frontend: 3, backend: 3, design: 2, data_ai: 2, presentation: 1 }
+    : { planning: 3, frontend: 1, backend: 1, design: 2, data_ai: 2, presentation: 3 };
+  for (const w of weaknesses) skills[SKILL_CARD_BY_ID[w].axis] = 1;
+  for (const st of strengths) skills[SKILL_CARD_BY_ID[st].axis] = 4;
+  return {
+    features: { ...(likert as Record<string, number>), ...skills } as SurveyResult['features'],
+    strengths: [strengths[0], strengths[1]],
+    weaknesses: [weaknesses[0], weaknesses[1]],
+    dealBreakers,
+  };
+}
 
 export interface PieceType {
   code: PieceCode;
@@ -110,46 +321,6 @@ export const PIECE_TYPES: Record<PieceCode, PieceType> = {
   PSEA: { code: 'PSEA', name: '꼼꼼', title: '문서 장인', line: '근거를 빈틈없이 문서로 남겨요' },
   PSEW: { code: 'PSEW', name: '척척', title: '일정표 매니저', line: '아이디어를 일정표로 바꿔 착착 굴려요' },
 };
-
-export type PieceAnswers = [PieceLetter | null, PieceLetter | null, PieceLetter | null, PieceLetter | null];
-
-export const emptyPieceAnswers = (): PieceAnswers => [null, null, null, null];
-
-export function codeFromAnswers(a: PieceAnswers): PieceCode | null {
-  return a.every(Boolean) ? (a.join('') as PieceCode) : null;
-}
-
-/** 답한 변만 볼록/오목, 아직 안 한 변은 평평(0) — 답할 때마다 한 변씩 완성 */
-export function edgesFromAnswers(a: PieceAnswers): [EdgeType, EdgeType, EdgeType, EdgeType] {
-  const edges: [EdgeType, EdgeType, EdgeType, EdgeType] = [0, 0, 0, 0];
-  PIECE_QUESTIONS.forEach((q, i) => {
-    const o = q.options.find((x) => x.letter === a[i]);
-    if (o) edges[q.side] = o.edge;
-  });
-  return edges;
-}
-
-export function edgesFromCode(code: PieceCode) {
-  return edgesFromAnswers(code.split('') as PieceAnswers);
-}
-
-/** 네 변이 전부 반대인 유형 */
-export function perfectMatch(code: PieceCode): PieceCode {
-  return PIECE_QUESTIONS.map((q, i) => q.options.find((o) => o.letter !== code[i])!.letter).join('') as PieceCode;
-}
-
-export function quadrantOf(code: PieceCode) {
-  return QUADRANT[code.slice(0, 2)];
-}
-
-export function tagsOf(code: PieceCode): string[] {
-  return PIECE_QUESTIONS.map((q, i) => q.options.find((o) => o.letter === code[i])!.tag);
-}
-
-/** 두 조각이 맞물리는 변 수 (반대인 축 수) */
-export function interlockCount(a: PieceCode, b: PieceCode) {
-  return [0, 1, 2, 3].filter((i) => a[i] !== b[i]).length;
-}
 
 // ───────────── 다른 사람의 조각 · 우리 둘 궁합 · 팀 드롭 2+2 ─────────────
 
@@ -225,7 +396,7 @@ export interface PairReport {
 
 export function pairReport(me: PieceCode, them: PieceCode, themName: string): PairReport {
   const t = nameI(themName);
-  const axes = PIECE_QUESTIONS.map((q, i) => {
+  const axes = PIECE_AXES.map((q, i) => {
     const mine = q.options.find((o) => o.letter === me[i])!;
     const theirs = q.options.find((o) => o.letter === them[i])!;
     const opposite = mine.letter !== theirs.letter;
