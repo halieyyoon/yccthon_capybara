@@ -169,9 +169,29 @@ function PairCompatView({ me, them, myCode, theirCode, onContinue }: { me: UserP
 function TeamOverview({ team, userId, codes, onOpenPair }: { team: TeamCandidate; userId: string; codes: PieceCode[]; onOpenPair: (memberId: string) => void }) {
   const reasons = team.evidenceTags.slice(0, 2);
   const example = team.puzzlePairs.find((pair) => pair.weaknessOwnerId === userId) ?? team.puzzlePairs[0];
+  const ok = team.explanations.reduce((n, e) => n + e.okCount, 0);
+  const total = team.explanations.reduce((n, e) => n + e.total, 0);
 
   return (
     <div className="space-y-5">
+      {/* 혜원 v1.1 수치 — 상세(왜 이 조합인가요?)를 열지 않아도 바로 보이게 */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-m3-md bg-surface px-4 py-3">
+        <p className="flex items-baseline gap-1.5">
+          <span className="tabular headline-small text-on-surface">
+            {ok}
+            <span className="title-medium text-on-surface-variant">/{total}</span>
+          </span>
+          <span className="label-medium text-on-surface-variant">응답이 맞는 항목</span>
+          <InfoTip align="start">목표·AI·협업은 4명의 응답 차이가 1점 이하인 문항 수, 역량은 필요한 역할을 능숙한 팀원이 채운 수예요. 정확도나 궁합 확률이 아니에요. 자세한 근거는 아래 ‘팀원과 추천 근거 자세히 보기’에서 볼 수 있어요.</InfoTip>
+        </p>
+        <ul className="flex flex-wrap gap-1.5" aria-label="지표별 개수">
+          {team.explanations.map((e) => (
+            <li key={e.metric} className={cx('rounded-full px-2.5 py-1 label-medium', e.okCount === e.total ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container text-on-surface-variant')}>
+              {e.label} <span className="tabular">{e.okCount}/{e.total}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
       <p className="mb-2! flex items-center gap-1 label-medium text-on-surface-variant">
         추천 팀원
         <InfoTip align="start">팀원을 누르면 우리 둘이 어떻게 맞물리는지 볼 수 있어요.</InfoTip>
@@ -349,7 +369,11 @@ export default function MatchPage() {
                       value: String(t.rank) as '1' | '2' | '3',
                       label: (
                         <span className={cx('tabular', t.status === 'EXPIRED' && 'line-through opacity-60')}>
-                          {t.rank}순위{t.status === 'EXPIRED' && <span className="sr-only"> (넘긴 팀)</span>}
+                          {t.rank}순위
+                          <span className="ml-1 label-small text-on-surface-variant">
+                            {t.explanations.reduce((n, e) => n + e.okCount, 0)}/{t.explanations.reduce((n, e) => n + e.total, 0)}
+                          </span>
+                          {t.status === 'EXPIRED' && <span className="sr-only"> (넘긴 팀)</span>}
                         </span>
                       ),
                     }))}

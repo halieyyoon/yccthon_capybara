@@ -276,7 +276,7 @@ function roleMetric(team: UserProfile[], contest: Contest): MetricExplanation {
     total: items.length,
     value: clamp01(mean(items.map((i) => Math.min(i.stat, MATCH_RULES.roleMinLevel) / MATCH_RULES.roleMinLevel))),
     weight: SCORE_WEIGHTS.roleCoverage,
-    rule: `이 대회에 필요한 역할마다 역량 ${MATCH_RULES.roleMinLevel}(능숙) 이상인 팀원이 한 명이라도 있으면 '채움'으로 세요. 역량은 온보딩 D2에서 본인이 매긴 값이에요.`,
+    rule: `이 대회에 필요한 역할마다 역량 ${MATCH_RULES.roleMinLevel}(능숙) 이상인 팀원이 한 명이라도 있으면 '채움'으로 세요. 역량은 온보딩 C3에서 본인이 매긴 값이에요.`,
     why: '역할은 비슷할 필요가 없고 서로 달라서 빈칸이 없을수록 좋아요. 그래서 다른 지표와 반대로 계산해요.',
     refs: ['HARRISON2007', 'LAYTON2010'],
     items,

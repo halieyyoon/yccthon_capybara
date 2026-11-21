@@ -310,7 +310,7 @@ export const COMPATIBILITY_MATRIX_16X16 = Object.fromEntries(
   COLLAB_TYPES.map((a) => [a, Object.fromEntries(COLLAB_TYPES.map((b) => [b, compat(a, b)]))]),
 ) as Record<CollabType, Record<CollabType, CompatLevel>>;
 
-/** 역량 자기보고(0~4)의 근거 — CATME Team-Maker도 기술·경험을 자기보고로 받아 팀 배정에 씀 (온보딩 D2) */
+/** 역량 자기보고(0~4)의 근거 — CATME Team-Maker도 기술·경험을 자기보고로 받아 팀 배정에 씀 (온보딩 C3) */
 export const SKILL_BASIS: ItemBasis = { refs: ['LAYTON2010'], adaptation: 'concept', note: '본인이 매긴 숙련도라 실제 실력과 다를 수 있어요.' };
 
 /**
