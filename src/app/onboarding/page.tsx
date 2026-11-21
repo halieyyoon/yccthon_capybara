@@ -38,6 +38,12 @@ import { useOndoStore } from '@/store/useOndoStore';
 import {
   PIECE_SURVEY,
   PIECE_TYPES,
+  SKILL_LEVELS,
+  SKILL_ROLES,
+  SURVEY_SECTIONS,
+  type SurveyAnswer,
+  type SurveyQ,
+  isAnswered,
   type PieceAnswers,
   type PieceCode,
   codeFromAnswers,
@@ -85,63 +91,135 @@ function Section({ title, tip, children }: { title: string; tip?: string; childr
   );
 }
 
+const optionCls = (sel: boolean) =>
+  cx(
+    'w-full rounded-m3-lg px-5 py-4 text-left transition-[background-color,box-shadow] duration-200',
+    sel ? 'bg-secondary-container text-on-secondary-container shadow-[0_0_0_2px_var(--md-sys-color-secondary)]' : 'bg-surface hover:bg-surface-container',
+  );
+
+/** 문항 형식별 입력 — 2지선다 · 5점 척도 · 하나 고르기 · 여러 개 고르기 · 역량 0~4 표 */
+type AnswerUpdate = SurveyAnswer | ((prev: SurveyAnswer | undefined) => SurveyAnswer);
+
+function QuestionInput({ q, value, answers, onChange }: { q: SurveyQ; value: SurveyAnswer | undefined; answers: PieceAnswers; onChange: (v: AnswerUpdate) => void }) {
+  if (q.type === 'binary' || q.type === 'single') {
+    const opts = q.type === 'binary' ? q.options.map((o) => ({ label: o.answer, detail: undefined as string | undefined })) : q.options;
+    return (
+      <div className="space-y-3" role="radiogroup" aria-label={q.question}>
+        {opts.map((o, oi) => (
+          <button key={oi} type="button" role="radio" aria-checked={value === oi} onClick={() => onChange(oi)} className={optionCls(value === oi)}>
+            <span className="block title-medium">{o.label}</span>
+            {o.detail && <span className="block body-small opacity-80">{o.detail}</span>}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  if (q.type === 'scale') {
+    return (
+      <div>
+        <SegmentedButton ariaLabel={q.question} value={(value as number) ?? null} onChange={(v) => onChange(v)} options={[1, 2, 3, 4, 5].map((v) => ({ value: v, label: String(v) }))} />
+        <div className="mt-2 flex justify-between px-2 label-medium text-on-surface-variant">
+          <span>{q.low}</span>
+          <span>{q.high}</span>
+        </div>
+      </div>
+    );
+  }
+  if (q.type === 'multi') {
+    const picked = (value as string[]) ?? [];
+    const blocked = q.excludeFrom ? ((answers[q.excludeFrom] as string[]) ?? []) : [];
+    const toggle = (v: string) =>
+      onChange((prev) => {
+        const cur = (prev as string[] | undefined) ?? [];
+        return cur.includes(v) ? cur.filter((x) => x !== v) : cur.length < q.max ? [...cur, v] : cur;
+      });
+    return (
+      <div>
+        <p className="mb-3 tabular label-large text-on-surface-variant">
+          {picked.length}/{q.max}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {q.options.map((o) => (
+            <Chip
+              key={o.value}
+              label={o.label}
+              selected={picked.includes(o.value)}
+              disabled={blocked.includes(o.value) || (!picked.includes(o.value) && picked.length >= q.max)}
+              onClick={() => toggle(o.value)}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+  // skills
+  const grid = (value as Partial<Record<RoleId, number>>) ?? {};
+  return (
+    <div className="space-y-3">
+      {SKILL_ROLES.map((r) => (
+        <div key={r.value} className="grid items-center gap-2 sm:grid-cols-[88px_1fr]">
+          <span className="title-small">{r.label}</span>
+          <SegmentedButton
+            ariaLabel={`${r.label} 숙련도`}
+            dense
+            value={grid[r.value] ?? null}
+            onChange={(v) => onChange((prev) => ({ ...((prev as Partial<Record<RoleId, number>>) ?? {}), [r.value]: v }))}
+            options={SKILL_LEVELS.map((l, i) => ({ value: i, label: <span><span className="tabular">{i}</span><span className="hidden md:inline"> {l}</span></span> }))}
+          />
+        </div>
+      ))}
+      <p className="flex justify-end gap-1 label-small text-on-surface-variant">0 해 본 적 없음 · 4 팀을 이끌 수 있음</p>
+    </div>
+  );
+}
+
 function PieceQuestionScreen({
   index,
   answers,
-  onPick,
+  onAnswer,
   onNext,
   onBack,
 }: {
   index: number;
   answers: PieceAnswers;
-  onPick: (choice: 0 | 1) => void;
+  onAnswer: (v: AnswerUpdate) => void;
   onNext: () => void;
   onBack: () => void;
 }) {
   const q = PIECE_SURVEY[index];
-  const picked = answers[index];
+  const value = answers[q.id];
+  const done = isAnswered(q, value);
+  const section = SURVEY_SECTIONS.find((x) => x.id === q.section)!;
+  const showPiece = q.type === 'binary' || (q.type === 'scale' && !!q.vote);
   return (
     <div className="flex min-h-dvh flex-col bg-page">
       <header className="mx-auto flex h-16 w-full max-w-xl items-center gap-3 px-4">
         <IconButton icon="arrow_back" label={index === 0 ? '나가기' : '이전 질문'} onClick={onBack} />
-        <LinearProgress value={(index + (picked !== null ? 1 : 0)) / PIECE_SURVEY.length} className="flex-1" />
+        <LinearProgress value={(index + (done ? 1 : 0)) / PIECE_SURVEY.length} className="flex-1" />
         <span className="tabular label-large text-on-surface-variant">
           {index + 1}/{PIECE_SURVEY.length}
         </span>
       </header>
       <main key={index} className="page-enter mx-auto flex w-full max-w-xl flex-1 flex-col px-4 pb-6">
-        <p className="mt-2 label-large text-primary">질문 {index + 1}</p>
+        <p className="mt-2 label-large text-primary">
+          <span className="tabular">{q.id}</span> · {section.title}
+        </p>
         <h1 className="mt-1 headline-medium">{q.question}</h1>
 
-        <div className="mt-6 grid place-items-center rounded-m3-xl bg-surface py-6">
-          <PuzzlePiece mode="fun" edges={edgesFromAnswers(answers)} size={176} />
-          <p className="mt-1 body-small text-on-surface-variant">답할 때마다 조각이 한 변씩 완성돼요</p>
-        </div>
+        {showPiece && (
+          <div className="mt-6 grid place-items-center rounded-m3-xl bg-surface py-5">
+            <PuzzlePiece mode="fun" edges={edgesFromAnswers(answers)} size={150} />
+            <p className="mt-1 body-small text-on-surface-variant">답할수록 조각이 완성돼요</p>
+          </div>
+        )}
 
-        <div className="mt-4 space-y-3" role="radiogroup" aria-label={q.question}>
-          {q.options.map((o, oi) => {
-            const sel = picked === oi;
-            return (
-              <button
-                key={oi}
-                type="button"
-                role="radio"
-                aria-checked={sel}
-                onClick={() => onPick(oi as 0 | 1)}
-                className={cx(
-                  'w-full rounded-m3-lg px-5 py-4 text-left transition-[background-color,box-shadow] duration-200',
-                  sel ? 'bg-secondary-container text-on-secondary-container shadow-[0_0_0_2px_var(--md-sys-color-secondary)]' : 'bg-surface hover:bg-surface-container',
-                )}
-              >
-                <span className="block title-medium">{o.answer}</span>
-              </button>
-            );
-          })}
+        <div className="mt-5">
+          <QuestionInput q={q} value={value} answers={answers} onChange={onAnswer} />
         </div>
 
         <div className="mt-auto pt-8">
-          <p className="mb-3 text-center body-small text-on-surface-variant">정답은 없어요. 반대여도, 똑같아도 다 맞물려요.</p>
-          <Button size="lg" className="w-full" disabled={picked === null} onClick={onNext}>
+          {showPiece && <p className="mb-3 text-center body-small text-on-surface-variant">정답은 없어요. 반대여도, 똑같아도 다 맞물려요.</p>}
+          <Button size="lg" className="w-full" disabled={!done} onClick={onNext}>
             {index === PIECE_SURVEY.length - 1 ? '내 조각 보기' : '다음 질문'}
           </Button>
         </div>
@@ -243,11 +321,8 @@ export default function OnboardingPage() {
   const [nickname, setNickname] = useState('');
   const [major, setMajor] = useState('');
   const [grade, setGrade] = useState<string>('');
-  const [mode, setMode] = useState<TemperatureMode | null>(null);
-  const [weeklyHours, setWeeklyHours] = useState<WeeklyHours | null>(null);
   const [offline, setOffline] = useState(true);
   const [night, setNight] = useState(false);
-  const [roles, setRoles] = useState<RoleId[]>([]);
 
   const [answers, setAnswers] = useState<Answers>({});
   const [deepOpen, setDeepOpen] = useState(false);
@@ -269,22 +344,19 @@ export default function OnboardingPage() {
     const m: string[] = [];
     if (!nickname.trim()) m.push('닉네임');
     if (!major.trim()) m.push('전공');
-    if (!mode) m.push('온도');
-    if (!weeklyHours) m.push('주당 시간');
-    if (roles.length === 0) m.push('희망 역할');
     return m;
-  }, [step, nickname, major, mode, weeklyHours, roles]);
+  }, [step, nickname, major]);
 
-  const answered = [nickname.trim(), major.trim(), mode, weeklyHours, roles.length ? 1 : null].filter(Boolean).length / 5;
+  const answered = [nickname.trim(), major.trim()].filter(Boolean).length / 2;
 
   const finish = (withOptional: boolean) => {
-    if (!mode || !weeklyHours) return;
+    const survey = featuresFromSurvey(pieceAnswers);
+    const mode = survey.temperatureMode;
     const val = (q: SurveyQuestion) => {
       const raw = answers[q.key];
       if (raw === undefined) return null;
       return q.reverse ? 6 - raw : raw;
     };
-    const survey = featuresFromSurvey(pieceAnswers);
     const optional = Object.fromEntries(
       OPTIONAL_FEATURE_KEYS.map((k) => {
         const q = OPTIONAL_LIKERT.find((x) => x.key === k)!;
@@ -305,8 +377,8 @@ export default function OnboardingPage() {
       temperatureMode: mode,
       temperature: temp.temperature,
       features27,
-      preferredRoles: roles,
-      hardConstraints: { weeklyHours, offlineAvailable: offline, nightWorkAvailable: night },
+      preferredRoles: survey.preferredRoles,
+      hardConstraints: { weeklyHours: survey.weeklyHours, offlineAvailable: offline, nightWorkAvailable: night },
       collabType: deriveCollabType(features27),
       strengths: survey.strengths,
       weaknesses: survey.weaknesses,
@@ -337,11 +409,10 @@ export default function OnboardingPage() {
       <PieceQuestionScreen
         index={pieceStep}
         answers={pieceAnswers}
-        onPick={(choice) =>
+        onAnswer={(v) =>
           setPieceAnswers((a) => {
-            const next = [...a] as PieceAnswers;
-            next[pieceStep] = choice;
-            return next;
+            const id = PIECE_SURVEY[pieceStep].id;
+            return { ...a, [id]: typeof v === 'function' ? v(a[id]) : v };
           })
         }
         onNext={() => {
@@ -411,48 +482,9 @@ export default function OnboardingPage() {
               </div>
             </Section>
 
-            <Section title="이번 대회, 몇 도로?" tip="언제든 프로필에서 바꿀 수 있어요. 바꾸면 퍼즐 모양도 바뀌어요.">
-              <div className="grid gap-3 sm:grid-cols-3">
-                {TEMPERATURE_MODES.map((t) => {
-                  const sel = mode === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setMode(t.id)}
-                      aria-pressed={sel}
-                      className="overflow-hidden rounded-m3-md bg-surface-container-low text-left transition-shadow duration-200"
-                      style={sel ? { boxShadow: `0 0 0 2px var(--band-${t.id}-fg)` } : undefined}
-                    >
-                      <div className="flex items-start justify-between px-4 pb-3 pt-4" style={{ background: `var(--band-${t.id})`, color: `var(--band-${t.id}-fg)` }}>
-                        <span className="tabular headline-medium">
-                          {t.temperature}
-                          <span className="text-[14px] align-top">°</span>
-                        </span>
-                        {sel ? <Icon name="check_circle" filled /> : <PuzzlePiece mode={t.id} edges={[-1, 1, -1, 1]} size={44} />}
-                      </div>
-                      <p className="px-4 py-3 title-small">{t.label}</p>
-                    </button>
-                  );
-                })}
-              </div>
-            </Section>
 
             <Section title="여건">
               <div className="space-y-4">
-                <div className="grid gap-1.5">
-                  <span className="label-medium text-on-surface-variant">주당 시간</span>
-                  <SegmentedButton
-                    ariaLabel="주당 시간"
-                    value={weeklyHours}
-                    onChange={setWeeklyHours}
-                    options={[
-                      { value: '3-5h', label: '3~5시간' },
-                      { value: '6-10h', label: '6~10시간' },
-                      { value: '10h+', label: '10시간+' },
-                    ]}
-                  />
-                </div>
                 <div className="space-y-1 rounded-m3-md bg-surface-container-low p-1">
                   <label className="flex items-center gap-3 px-4 py-3">
                     <Icon name="apartment" className="text-on-surface-variant" />
@@ -464,17 +496,6 @@ export default function OnboardingPage() {
                     <span className="flex-1 body-large">밤샘 가능</span>
                     <Switch checked={night} onChange={setNight} label="밤샘 가능" />
                   </label>
-                </div>
-                <div className="grid gap-2">
-                  <span className="flex items-center gap-1 label-medium text-on-surface-variant">
-                    맡고 싶은 역할 · 최대 2
-                    <InfoTip align="start">잘하는 정도는 3단계에서 따로 물어봐요.</InfoTip>
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    {ROLES.map((r) => (
-                      <Chip key={r.id} label={r.label} selected={roles.includes(r.id)} onClick={() => toggle(r.id, 2, setRoles)} disabled={!roles.includes(r.id) && roles.length >= 2} />
-                    ))}
-                  </div>
                 </div>
               </div>
             </Section>
