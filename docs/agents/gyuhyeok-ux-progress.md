@@ -33,7 +33,17 @@ npm run dev        # http://localhost:3000
 
 - **혜원**: `src/types/ondo.ts`(SPEC 4장 원문 그대로), `src/data/constants.ts`, `src/data/seedUsers.ts`(100명, 결측 30명), `src/data/seedContests.ts`(8건), `src/lib/matching/clusterEngine.ts`(Gower+PAM k=5+MDS, 팀 점수 4지표), `src/app/api/*`(Gemini + 폴백)
   - 화면이 쓰는 추가 export: `SCORE_WEIGHTS`, `countMissing`(clusterEngine), `FEATURE_GROUP_LABEL`, `TEMPERATURE_BY_ID`, `SKILL_CARD_BY_ID`, `DEAL_BREAKER_BY_ID`, `ROLE_LABEL`, `LIKERT_LABELS`, `SKILL_LEVEL_LABELS`, `OPTIONAL_FEATURE_KEYS`, `COLLAB_AXIS_LABEL`, `COMPATIBILITY_MATRIX_16X16`, `COMPAT_LEVEL_META`(5단계 라벨·색, constants), `SAMPLE_LINKEDIN_CV_TEXT`(seedUsers)
-- **연서**: `src/app/globals.css`(M3 토큰, seed `#B4532F`로 생성), `src/components/m3/*`(M3 기본 컴포넌트), `src/components/ondo/*`(`PuzzleProfileCard`, `ClusterScatterPlot`, `TeamPuzzleMerge`, `AvatarMeetingCard`, `AppShell`)
+- **연서**: `src/app/globals.css`, `src/components/m3/*`, `src/components/AppShell.tsx`(디자인 세션이 Google Classroom 기반 M3로 재작업 중)
+  - **계약 컴포넌트 6종** — 지침서 3장 경로·Props 그대로: `PuzzleProfileCard({ profile, showRealIdentity?, onModeChange?, compact? })`, `TeamPuzzleMerge({ team, unlocked? })`, `ClusterScatterPlot({ points, onSelectPoint? })`, `AvatarMeetingCard({ result, loading?, loadingStepText? })`, `PilotRoomView({...계약 11개 Props})`, `CvPrintSheet({ profile })` + 공통 부품 `PuzzlePiece.tsx`
+  - **`PilotRoomView` 계약 추가 요청(선택 Props)**: `suggestedPatch`, `onApplySuggestedPatch`, `onDismissSuggestedPatch`(gyuhyeok-ux.md 6 — 메모 원클릭 반영), `ended`(종료 후 입력 잠금)
+  - 화면이 쓰는 추가 부품: `InfoTip`(m3 — 꼭 필요한 설명만 (i) 안에)
+
+## 구조 반영 (2026-11-21 재점검 후)
+
+- **팀 상태 흐름 6단계 전부 사용** (05 workflow): `CLUSTERED → AVATAR_DONE → (PILOT_ACTIVE) → WAITING_CONSENT(수락 n/4만 표시) → UNLOCKED`, 넘기기·‘다음 기회에’ → `EXPIRED`(알림 없이 조용히 종료, “이번 주 금요일 밤 새 퍼즐 조합이 도착해요”)
+- **프로필 = 퍼즐 + CV** (01·02·04·05): 온보딩 완료 → `/cv`로 이어짐(‘나중에’ 가능) → `/profile`에서 퍼즐 N/27 · CV N/5 함께 표시
+- **텍스트 최소화**: 자잘한 안내문은 (i) `InfoTip` 안으로. 계약상 필수 고지(산점도 범례, AI 모의회의 고지)만 본문에 한 줄
+- SPEC 우선으로 제외한 것: When2Meet·추천 회의 시간, Supabase·실시간·Cron, ‘바로 찾기/기다리기’ 분기(Weekly Drop 토글로 통합)
 
 ## 완료 체크리스트 확인 결과 (브라우저로 직접 확인)
 
@@ -57,4 +67,4 @@ npm run dev        # http://localhost:3000
 - **미정 (팀에서 정하기)**
   - 배포(Vercel 등)와 시연용 URL
 
-> 화면(page.tsx)은 위 모듈의 export 이름에만 의존하므로, 혜원·연서 파일이 바뀌어도 이름이 같으면 화면은 그대로 동작합니다. 이름을 바꿔야 하면 규혁에게 알려 주세요.
+> 화면(page.tsx)은 계약 컴포넌트를 **계약 Props로만** 불러 씁니다. 연서가 같은 경로·Props로 덮어쓰면 화면 수정 없이 연결돼요. 바꿔야 하면 규혁에게 알려 주세요.

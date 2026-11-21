@@ -61,6 +61,10 @@ interface OndoState {
   unlockedTeamIds: string[];
   weeklyDropPreviewOpen: boolean;
   matchingBusy: boolean;
+  /** 수락 대기 중 수락한 인원 수 (누가 눌렀는지는 저장하지 않음) */
+  consentCount: Record<string, number>;
+  /** 온보딩을 막 마친 상태 — CV 작성으로 이어 주는 안내에 사용 (저장 안 함) */
+  justOnboarded: boolean;
 
   initDemoUser: () => void;
   setCurrentUser: (user: UserProfile) => void;
@@ -74,6 +78,9 @@ interface OndoState {
   updatePilot: (teamId: string, patch: Partial<PilotState>) => void;
   setTeamStatus: (teamId: string, status: TeamCandidate['status']) => void;
   unlockTeam: (teamId: string) => Promise<void>;
+  /** 넘기기·미성사 — 거절 알림 없이 조용히 종료 (status = 'EXPIRED') */
+  passTeam: (teamId: string) => void;
+  setJustOnboarded: (v: boolean) => void;
   resetAll: () => void;
 }
 
@@ -88,6 +95,8 @@ const initial = {
   unlockedTeamIds: [],
   weeklyDropPreviewOpen: false,
   matchingBusy: false,
+  consentCount: {},
+  justOnboarded: false,
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -185,12 +194,24 @@ export const useOndoStore = create<OndoState>()(
         set({ recommendedTeams: get().recommendedTeams.map((t) => (t.id === teamId ? { ...t, status } : t)) }),
 
       unlockTeam: async (teamId) => {
+        // 시연용: 나(1명) → 4명 순서로 수락이 차오르는 연출. 누가 먼저 눌렀는지는 보여 주지 않음
         get().setTeamStatus(teamId, 'WAITING_CONSENT');
-        await sleep(1500);
+        for (let n = 1; n <= 4; n++) {
+          set({ consentCount: { ...get().consentCount, [teamId]: n } });
+          if (n < 4) await sleep(500);
+        }
         get().setTeamStatus(teamId, 'UNLOCKED');
         const ids = get().unlockedTeamIds;
         if (!ids.includes(teamId)) set({ unlockedTeamIds: [...ids, teamId] });
       },
+
+      passTeam: (teamId) => {
+        get().setTeamStatus(teamId, 'EXPIRED');
+        const pilot = get().pilotStates[teamId];
+        if (pilot) get().updatePilot(teamId, { ended: true, vote: 'pass' });
+      },
+
+      setJustOnboarded: (v) => set({ justOnboarded: v }),
 
       resetAll: () => set({ ...initial }),
     }),
@@ -206,6 +227,7 @@ export const useOndoStore = create<OndoState>()(
         avatarMeetings: s.avatarMeetings,
         pilotStates: s.pilotStates,
         unlockedTeamIds: s.unlockedTeamIds,
+        consentCount: s.consentCount,
       }),
     },
   ),
