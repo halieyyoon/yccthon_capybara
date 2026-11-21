@@ -174,7 +174,7 @@ export function PuzzleProfileCard({
 
       <div className={cx('grid items-center gap-6', compact ? 'mt-3 grid-cols-[120px_1fr]' : 'mt-6 grid-cols-1 sm:grid-cols-[200px_1fr]')}>
         <div className="flex justify-center">
-          <PuzzlePiece mode={mode} label={collabType} sublabel={`${COLLAB_AXIS_LABEL[axes[0]]} · ${COLLAB_AXIS_LABEL[axes[3]]}`} size={compact ? 120 : 200} />
+          <PuzzlePiece mode={mode} label={collabType} size={compact ? 120 : 200} />
         </div>
         <div className="space-y-4">
           <div className="space-y-2">

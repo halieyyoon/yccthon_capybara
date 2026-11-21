@@ -238,7 +238,7 @@ export function TextField({ label, supporting, error, leadingIcon, suffix, class
         <input
           id={id}
           placeholder=" "
-          className="peer h-full w-full min-w-0 bg-transparent px-4 pt-1 body-large text-on-surface outline-none placeholder:text-transparent"
+          className="peer h-full w-full min-w-0 bg-transparent px-4 pt-1 body-large text-on-surface outline-none placeholder:text-transparent focus:placeholder:text-on-surface-variant/70"
           aria-invalid={!!error}
           {...rest}
         />
@@ -246,10 +246,10 @@ export function TextField({ label, supporting, error, leadingIcon, suffix, class
         <label
           htmlFor={id}
           className={cx(
-            'pointer-events-none absolute top-0 -translate-y-1/2 bg-surface px-1 body-small transition-all',
+            'pointer-events-none absolute top-1/2 -translate-y-1/2 bg-surface px-1 body-large transition-all',
             leadingIcon ? 'left-11' : 'left-3',
             error ? 'text-error' : 'text-on-surface-variant group-focus-within:text-primary',
-            'peer-placeholder-shown:top-1/2 peer-placeholder-shown:body-large peer-focus:top-0 peer-focus:body-small',
+            'peer-focus:top-0 peer-focus:body-small peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:body-small',
           )}
         >
           {label}
@@ -270,12 +270,12 @@ export function TextArea({ label, supporting, className, ...rest }: FieldProps &
         <textarea
           id={id}
           placeholder=" "
-          className="peer block min-h-24 w-full resize-y bg-transparent px-4 pb-3 pt-4 body-large text-on-surface outline-none placeholder:text-transparent"
+          className="peer block min-h-24 w-full resize-y bg-transparent px-4 pb-3 pt-4 body-large text-on-surface outline-none placeholder:text-transparent focus:placeholder:text-on-surface-variant/70"
           {...rest}
         />
         <label
           htmlFor={id}
-          className="pointer-events-none absolute left-3 top-0 -translate-y-1/2 bg-surface px-1 body-small text-on-surface-variant transition-all group-focus-within:text-primary peer-placeholder-shown:top-7 peer-placeholder-shown:body-large peer-focus:top-0 peer-focus:body-small"
+          className="pointer-events-none absolute left-3 top-7 -translate-y-1/2 bg-surface px-1 body-large text-on-surface-variant transition-all group-focus-within:text-primary peer-focus:top-0 peer-focus:body-small peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:body-small"
         >
           {label}
         </label>
@@ -371,7 +371,7 @@ export function Snackbar({ message, onDone }: { message: string | null; onDone: 
   }, [message, onDone]);
   if (!message) return null;
   return (
-    <div role="status" className="enter fixed inset-x-0 bottom-24 z-50 flex justify-center px-4 md:bottom-6">
+    <div role="status" className="enter fixed inset-x-0 bottom-28 z-50 flex justify-center px-4 md:bottom-24">
       <div className="min-h-12 max-w-xl rounded-m3-xs bg-inverse-surface px-4 py-3.5 body-medium text-inverse-on-surface shadow-lg">{message}</div>
     </div>
   );
