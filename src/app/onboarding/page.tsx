@@ -36,7 +36,7 @@ import { basisText } from '@/data/references';
 import { basisOf, feedsOf } from '@/data/surveyBasis';
 import { Button, Chip, cx, Icon, IconButton, InfoTip, LinearProgress, SegmentedButton, Switch, TextField } from '@/components/m3';
 import { PuzzlePiece } from '@/components/PuzzlePiece';
-import { useOndoStore } from '@/store/useOndoStore';
+import { useHydrated, useOndoStore } from '@/store/useOndoStore';
 import {
   PIECE_SURVEY,
   PIECE_TYPES,
@@ -53,6 +53,7 @@ import {
   edgesFromCode,
   emptyPieceAnswers,
   featuresFromSurvey,
+  goalFeaturesFor,
   perfectMatch,
   quadrantOf,
   tagsOf,
@@ -217,7 +218,7 @@ function MiniPiece({ code, caption, tone }: { code: PieceCode; caption: string; 
   );
 }
 
-function PieceResultScreen({ code, onContinue, onRetry }: { code: PieceCode; onContinue: () => void; onRetry: () => void }) {
+function PieceResultScreen({ code, onContinue, onRetry, continueLabel = '이 조각으로 팀 맞추기' }: { code: PieceCode; onContinue: () => void; onRetry: () => void; continueLabel?: string }) {
   const t = PIECE_TYPES[code];
   const match = perfectMatch(code);
   const [shared, setShared] = useState<string | null>(null);
@@ -261,7 +262,7 @@ function PieceResultScreen({ code, onContinue, onRetry }: { code: PieceCode; onC
 
         <div className="mt-auto space-y-2 pt-8">
           <Button size="lg" className="w-full" icon="arrow_forward" onClick={onContinue}>
-            이 조각으로 팀 맞추기
+            {continueLabel}
           </Button>
           <div className="flex gap-2">
             <Button variant="outlined" className="flex-1" icon="ios_share" onClick={share}>
@@ -286,7 +287,19 @@ export default function OnboardingPage() {
   // ① 내 조각 설문 → ② 결과 → CV(닉네임·전공·학년은 CV ‘기본 정보’에서)
   const [phase, setPhase] = useState<'piece' | 'result'>('piece');
   const [pieceStep, setPieceStep] = useState(0);
+  // 프로필 ‘고치기’로 다시 들어오면(이미 프로필이 있음) 지난 답을 채워서 시작
+  const existingUser = useOndoStore((s) => s.currentUser);
+  const savedAnswers = useOndoStore((s) => s.surveyAnswers);
+  const setSurveyAnswers = useOndoStore((s) => s.setSurveyAnswers);
+  const hydrated = useHydrated();
+  const retake = hydrated && !!existingUser;
   const [pieceAnswers, setPieceAnswers] = useState<PieceAnswers>(emptyPieceAnswers);
+  const [prefilled, setPrefilled] = useState(false);
+  useEffect(() => {
+    if (!hydrated || prefilled) return;
+    if (existingUser && savedAnswers) setPieceAnswers(savedAnswers);
+    setPrefilled(true);
+  }, [hydrated, prefilled, existingUser, savedAnswers]);
   const pieceCode = codeFromAnswers(pieceAnswers);
 
   useEffect(() => {
@@ -334,6 +347,24 @@ export default function OnboardingPage() {
         source: 'manual',
       },
     };
+    setSurveyAnswers(pieceAnswers);
+    if (existingUser) {
+      // 다시 답하기: CV·닉네임·이메일·참여 온도·알림 설정은 그대로 두고 설문에서 나온 값만 바꿈
+      const { temperatureMode, temperature } = existingUser;
+      setCurrentUser({
+        ...existingUser,
+        features27: { ...user.features27, ...goalFeaturesFor(temperatureMode) },
+        preferredRoles: user.preferredRoles,
+        hardConstraints: { ...existingUser.hardConstraints, offlineAvailable: user.hardConstraints.offlineAvailable, nightWorkAvailable: user.hardConstraints.nightWorkAvailable },
+        strengths: user.strengths,
+        weaknesses: user.weaknesses,
+        dealBreakers: user.dealBreakers,
+        temperatureMode,
+        temperature,
+      });
+      router.push('/profile');
+      return;
+    }
     setCurrentUser(user);
     setJustOnboarded(true);
     router.push('/cv');
@@ -357,7 +388,7 @@ export default function OnboardingPage() {
             setPhase('result');
           }
         }}
-        onBack={() => (pieceStep === 0 ? router.push('/') : setPieceStep(pieceStep - 1))}
+        onBack={() => (pieceStep === 0 ? router.push(retake ? '/profile' : '/') : setPieceStep(pieceStep - 1))}
       />
     );
   }
@@ -367,6 +398,7 @@ export default function OnboardingPage() {
       <PieceResultScreen
         code={pieceCode}
         onContinue={finish}
+        continueLabel={retake ? '이 조각으로 저장' : undefined}
         onRetry={() => {
           setPieceAnswers(emptyPieceAnswers());
           setPieceStep(0);

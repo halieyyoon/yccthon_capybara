@@ -16,7 +16,7 @@ import { AppShell, NeedsUser } from '@/components/AppShell';
 import { PuzzlePiece } from '@/components/PuzzlePiece';
 import { PuzzleProfileCard } from '@/components/PuzzleProfileCard';
 import { cvFilledSections } from '@/store/profileProgress';
-import { useHydrated, useOndoStore } from '@/store/useOndoStore';
+import { useHydrated, useOndoStore, withTemperature } from '@/store/useOndoStore';
 import { PIECE_TYPES, dropLayout, edgesFromCode, nameI, perfectMatch, pieceOf, quadrantOf } from '@/store/pieceTypes';
 import type { Contest, TeamCandidate } from '@/types/ondo';
 
@@ -125,25 +125,25 @@ export default function ProfilePage() {
   const router = useRouter();
   const user = useOndoStore((s) => s.currentUser);
   const updateTemperatureMode = useOndoStore((s) => s.updateTemperatureMode);
-  const updateOptionalFeatures = useOndoStore((s) => s.updateOptionalFeatures);
   const setWeeklyDrop = useOndoStore((s) => s.setWeeklyDrop);
   const previewOpen = useOndoStore((s) => s.weeklyDropPreviewOpen);
   const setPreviewOpen = useOndoStore((s) => s.setWeeklyDropPreviewOpen);
   const resetAll = useOndoStore((s) => s.resetAll);
   const myPiece = useOndoStore((s) => s.myPiece);
+  const savedTeams = useOndoStore(s => s.savedTeams);
+  const contestModes = useOndoStore(s => s.contestModes);
   const runMatching = useOndoStore((s) => s.runMatchingForContest);
   const unlockTeam = useOndoStore((s) => s.unlockTeam);
 
-  const [deepOpen, setDeepOpen] = useState(false);
-  const [draft, setDraft] = useState<Partial<Record<OptionalKey, number | null>>>({});
   const [snack, setSnack] = useState<string | null>(null);
 
   const dropPreview = useMemo(() => {
     if (!user || !previewOpen) return null;
     const contest: Contest = SEED_CONTESTS[0];
-    const { teams } = recommendTeams(user, SEED_USERS, contest, runClusterAnalysis(user, SEED_USERS));
+    const profile = withTemperature(user, contestModes[contest.id] ?? user.temperatureMode);
+    const { teams } = recommendTeams(profile, SEED_USERS, contest, runClusterAnalysis(profile, SEED_USERS));
     return teams[0] ? { contest, team: teams[0] } : null;
-  }, [user, previewOpen]);
+  }, [user, previewOpen, contestModes]);
 
   if (!hydrated) return <AppShell>{null}</AppShell>;
   if (!user) return <AppShell><NeedsUser /></AppShell>;
@@ -152,12 +152,6 @@ export default function ProfilePage() {
   const cvDone = cvFilledSections(user.cv);
   const dropAt = nextFridayDrop();
 
-  const openDeep = () => {
-    const init: Partial<Record<OptionalKey, number | null>> = {};
-    for (const g of SURVEY_QUESTIONS.optional) for (const q of g.items) init[q.key as OptionalKey] = user.features27[q.key] as number | null;
-    setDraft(init);
-    setDeepOpen(true);
-  };
 
   return (
     <AppShell
@@ -200,9 +194,9 @@ export default function ProfilePage() {
               <Ring value={answered} max={27} label="퍼즐 응답" />
               <p className="flex min-w-0 flex-1 items-center gap-1 title-medium">
                 퍼즐 {answered}/27
-                <InfoTip align="start">비어 있는 성격·갈등 항목은 0점이 아니라 점수 계산에서 빠져요.</InfoTip>
+                <InfoTip align="start">고치기를 누르면 설문(A1~F4)을 지난 답이 채워진 채로 다시 열어요. 다시 답해도 CV와 닉네임은 그대로예요.</InfoTip>
               </p>
-              <Button variant={answered < 27 ? 'tonal' : 'text'} onClick={openDeep}>
+              <Button variant={answered < 27 ? 'tonal' : 'text'} onClick={() => router.push('/onboarding')}>
                 {answered < 27 ? '채우기' : '고치기'}
               </Button>
             </div>
@@ -221,6 +215,13 @@ export default function ProfilePage() {
             <span className="flex-1 title-medium">공모전 팀 찾기</span>
             <Icon name="arrow_forward" />
           </Link>
+
+          {Object.values(savedTeams).filter(t => t.status === 'UNLOCKED').map(team => (
+            <Link key={team.id} href={`/team/${team.id}`} className="block rounded-m3-md bg-surface-container-low p-4">
+              <strong>확정 팀 · {SEED_CONTESTS.find(c => c.id === team.contestId)?.title}</strong>
+              <p className="body-small">{team.members.map(m => m.nickname).join(' · ')}</p>
+            </Link>
+          ))}
 
           <Card variant="filled" className="p-4">
             <div className="flex items-center gap-3">
@@ -262,59 +263,6 @@ export default function ProfilePage() {
         </aside>
       </div>
 
-      <Dialog
-        open={deepOpen}
-        onClose={() => setDeepOpen(false)}
-        title="성격 · 갈등"
-        wide
-        actions={
-          <>
-            <Button variant="text" onClick={() => setDeepOpen(false)}>
-              취소
-            </Button>
-            <Button
-              onClick={() => {
-                updateOptionalFeatures(draft as Partial<Pick<Features27, OptionalKey>>);
-                setDeepOpen(false);
-                setSnack('저장했어요');
-              }}
-            >
-              저장
-            </Button>
-          </>
-        }
-      >
-        <p className="flex items-center justify-between label-medium">
-          <span>1 {LIKERT_LABELS[0]}</span>
-          <InfoTip>검증 전 임시 문항이에요. 진단이 아니라 대화 주제를 찾는 데 써요. 답하지 않은 문항은 미응답으로 남아요.</InfoTip>
-          <span>5 {LIKERT_LABELS[4]}</span>
-        </p>
-        {SURVEY_QUESTIONS.optional.map((g) => (
-          <section key={g.group} className="mt-5">
-            <h3 className="title-medium text-on-surface">{g.title}</h3>
-            <div className="space-y-1">
-              {g.items.map((q) => {
-                const k = q.key as OptionalKey;
-                return (
-                  <div key={k} className="py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="body-medium text-on-surface">{q.text}</p>
-                      {draft[k] != null && (
-                        <button type="button" className="shrink-0 label-medium text-primary" onClick={() => setDraft((d) => ({ ...d, [k]: null }))}>
-                          비우기
-                        </button>
-                      )}
-                    </div>
-                    <div className="mt-2">
-                      <SegmentedButton ariaLabel={q.text} dense value={draft[k] ?? null} onChange={(v) => setDraft((d) => ({ ...d, [k]: v }))} options={[1, 2, 3, 4, 5].map((v) => ({ value: v, label: String(v) }))} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        ))}
-      </Dialog>
 
       <Dialog open={previewOpen} onClose={() => setPreviewOpen(false)} title="이번 주 드롭 미리보기" wide>
         {dropPreview ? (

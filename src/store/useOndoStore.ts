@@ -22,7 +22,7 @@ import { SEED_USERS } from '@/data/seedUsers';
 import { SEED_CONTESTS } from '@/data/seedContests';
 import { recommendTeams, runClusterAnalysis } from '@/lib/matching/clusterEngine';
 import { DEMO_USER } from './demoUser';
-import type { PieceCode } from './pieceTypes';
+import { goalFeaturesFor, type PieceAnswers, type PieceCode } from './pieceTypes';
 
 export type PilotVote = 'join' | 'pass';
 
@@ -51,6 +51,15 @@ type OptionalKey =
   | 'openness' | 'conscientiousness' | 'extraversion' | 'agreeableness' | 'emotional_stability'
   | 'integrating' | 'obliging' | 'dominating' | 'avoiding' | 'compromising';
 
+export function withTemperature(user: UserProfile, mode: TemperatureMode): UserProfile {
+  return {
+    ...user,
+    temperatureMode: mode,
+    temperature: TEMPERATURE_BY_ID[mode].temperature,
+    features27: { ...user.features27, ...goalFeaturesFor(mode) },
+  };
+}
+
 interface OndoState {
   currentUser: UserProfile | null;
   selectedContestId: string | null;
@@ -60,6 +69,8 @@ interface OndoState {
   avatarLoading: Record<string, boolean>;
   pilotStates: Record<string, PilotState>;
   unlockedTeamIds: string[];
+  savedTeams: Record<string, TeamCandidate>;
+  contestModes: Record<string, TemperatureMode>;
   weeklyDropPreviewOpen: boolean;
   matchingBusy: boolean;
   /** 수락 대기 중 수락한 인원 수 (누가 눌렀는지는 저장하지 않음) */
@@ -68,6 +79,8 @@ interface OndoState {
   justOnboarded: boolean;
   /** ‘내 조각’ 설문 결과 (4축 16유형) */
   myPiece: PieceCode | null;
+  /** 설문 답 — 프로필에서 ‘고치기’로 다시 열 때 그대로 채움 */
+  surveyAnswers: PieceAnswers | null;
 
   initDemoUser: () => void;
   setCurrentUser: (user: UserProfile) => void;
@@ -76,7 +89,7 @@ interface OndoState {
   updateCv: (patch: Partial<CvTemplate>) => void;
   setWeeklyDrop: (enabled: boolean) => void;
   setWeeklyDropPreviewOpen: (open: boolean) => void;
-  runMatchingForContest: (contestId: string) => Promise<void>;
+  runMatchingForContest: (contestId: string, mode?: TemperatureMode) => Promise<void>;
   requestAvatarMeeting: (teamId: string) => Promise<void>;
   updatePilot: (teamId: string, patch: Partial<PilotState>) => void;
   setTeamStatus: (teamId: string, status: TeamCandidate['status']) => void;
@@ -85,6 +98,7 @@ interface OndoState {
   passTeam: (teamId: string) => void;
   setJustOnboarded: (v: boolean) => void;
   setMyPiece: (code: PieceCode | null) => void;
+  setSurveyAnswers: (a: PieceAnswers | null) => void;
   resetAll: () => void;
 }
 
@@ -97,11 +111,14 @@ const initial = {
   avatarLoading: {},
   pilotStates: {},
   unlockedTeamIds: [],
+  savedTeams: {},
+  contestModes: {},
   weeklyDropPreviewOpen: false,
   matchingBusy: false,
   consentCount: {},
   justOnboarded: false,
   myPiece: null as PieceCode | null,
+  surveyAnswers: null as PieceAnswers | null,
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -115,12 +132,12 @@ export const useOndoStore = create<OndoState>()(
         set({ ...initial, currentUser: structuredClone(DEMO_USER), myPiece: 'IMGA' }),
 
       setCurrentUser: (user) =>
-        set({ currentUser: { ...user, collabType: deriveCollabType(user.features27) } }),
+        set({ ...(get().currentUser && get().currentUser?.id !== user.id ? { ...initial, myPiece: get().myPiece, surveyAnswers: get().surveyAnswers } : {}), currentUser: { ...user, collabType: deriveCollabType(user.features27) } }),
 
       updateTemperatureMode: (mode) => {
         const u = get().currentUser;
         if (!u) return;
-        set({ currentUser: { ...u, temperatureMode: mode, temperature: TEMPERATURE_BY_ID[mode].temperature } });
+        set({ currentUser: withTemperature(u, mode) });
       },
 
       updateOptionalFeatures: (patch) => {
@@ -144,18 +161,23 @@ export const useOndoStore = create<OndoState>()(
 
       setWeeklyDropPreviewOpen: (open) => set({ weeklyDropPreviewOpen: open }),
 
-      runMatchingForContest: async (contestId) => {
-        const user = get().currentUser;
+      runMatchingForContest: async (contestId, mode) => {
+        const profile = get().currentUser;
         const contest = SEED_CONTESTS.find((c) => c.id === contestId);
-        if (!user || !contest) return;
-        set({ matchingBusy: true, selectedContestId: contestId });
+        if (!profile || !contest) return;
+        const selectedMode = mode ?? get().contestModes[contestId] ?? profile.temperatureMode;
+        const user = withTemperature(profile, selectedMode);
+        const contestModes = { ...get().contestModes, [contestId]: selectedMode };
+        set({ matchingBusy: true, selectedContestId: contestId, contestModes });
         // 계산 전에 화면이 먼저 바뀌도록 한 프레임 양보
         await sleep(30);
+        if (get().contestModes !== contestModes) return;
         const points = runClusterAnalysis(user, SEED_USERS);
-        const { teams, annotatedPoints } = recommendTeams(user, SEED_USERS, contest, points);
-        // 팀 id는 대회별로 같으므로, 다시 매칭하면 그 대회의 이전 모의회의·파일럿 캐시를 버림 (언락된 팀은 유지)
-        const { avatarMeetings, pilotStates, unlockedTeamIds } = get();
-        const stale = (id: string) => id.startsWith(`${contestId}-team-`) && !unlockedTeamIds.includes(id);
+        const { teams: candidates, annotatedPoints } = recommendTeams(user, SEED_USERS, contest, points);
+        const drawId = crypto.randomUUID();
+        const teams = candidates.map(team => ({ ...team, id: team.id + '-' + drawId }));
+        const { avatarMeetings, pilotStates, savedTeams } = get();
+        const stale = (id: string) => !savedTeams[id];
         const keep = <T,>(rec: Record<string, T>) => Object.fromEntries(Object.entries(rec).filter(([id]) => !stale(id)));
         set({
           clusteredPoints: annotatedPoints,
@@ -183,8 +205,10 @@ export const useOndoStore = create<OndoState>()(
           });
           if (res.ok) {
             const result: AvatarMeetingResult = await res.json();
+            const active = get().recommendedTeams.find(t => t.id === teamId);
+            if (!active && !get().savedTeams[teamId]) return;
             set({ avatarMeetings: { ...get().avatarMeetings, [teamId]: result } });
-            get().setTeamStatus(teamId, 'AVATAR_DONE');
+            if (active?.status === 'CLUSTERED') get().setTeamStatus(teamId, 'AVATAR_DONE');
           }
         } finally {
           set({ avatarLoading: { ...get().avatarLoading, [teamId]: false } });
@@ -201,17 +225,22 @@ export const useOndoStore = create<OndoState>()(
 
       unlockTeam: async (teamId) => {
         // 시연용: 나(1명) → 4명 순서로 수락이 차오르는 연출. 누가 먼저 눌렀는지는 보여 주지 않음
+        const team = get().savedTeams[teamId] ?? get().recommendedTeams.find(t => t.id === teamId);
+        if (!team || team.status === 'EXPIRED' || team.status === 'UNLOCKED') return;
+        set({ savedTeams: { ...get().savedTeams, [teamId]: { ...team, status: 'WAITING_CONSENT' } } });
         get().setTeamStatus(teamId, 'WAITING_CONSENT');
-        for (let n = 1; n <= 4; n++) {
+        for (let n = get().consentCount[teamId] || 1; n <= 4; n++) {
+          if (get().savedTeams[teamId]?.status !== 'WAITING_CONSENT') return;
           set({ consentCount: { ...get().consentCount, [teamId]: n } });
           if (n < 4) await sleep(500);
         }
         get().setTeamStatus(teamId, 'UNLOCKED');
         const ids = get().unlockedTeamIds;
-        if (!ids.includes(teamId)) set({ unlockedTeamIds: [...ids, teamId] });
+        set({ savedTeams: { ...get().savedTeams, [teamId]: { ...team, status: 'UNLOCKED' } }, unlockedTeamIds: [...new Set([...ids, teamId])] });
       },
 
       passTeam: (teamId) => {
+        if (get().savedTeams[teamId]) return;
         get().setTeamStatus(teamId, 'EXPIRED');
         const pilot = get().pilotStates[teamId];
         if (pilot) get().updatePilot(teamId, { ended: true, vote: 'pass' });
@@ -221,16 +250,26 @@ export const useOndoStore = create<OndoState>()(
 
       setMyPiece: (code) => set({ myPiece: code }),
 
+      setSurveyAnswers: (a) => set({ surveyAnswers: a }),
+
       resetAll: () => set({ ...initial }),
     }),
     {
       name: 'ondo_mvp_state_v1',
       // v2 (혜원): TeamCandidate에 explanations·outlier·cautions 추가 → 이전에 저장된 추천 결과는 비우고 다시 계산
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
         const s = persisted as Record<string, unknown>;
         if (version < 2) return { ...s, recommendedTeams: [], clusteredPoints: [], selectedContestId: null };
-        return s;
+        const teams = (s.recommendedTeams ?? []) as TeamCandidate[];
+        const savedTeams = Object.fromEntries(teams.filter(t => ['UNLOCKED', 'WAITING_CONSENT'].includes(t.status) || (s.unlockedTeamIds as string[] | undefined)?.includes(t.id)).map(t => [t.id, t]));
+        return { ...s, savedTeams };
+
+      },
+      onRehydrateStorage: () => state => {
+        for (const team of Object.values(state?.savedTeams ?? {})) {
+          if (team.status === 'WAITING_CONSENT') queueMicrotask(() => void state?.unlockTeam(team.id));
+        }
       },
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
@@ -241,8 +280,11 @@ export const useOndoStore = create<OndoState>()(
         avatarMeetings: s.avatarMeetings,
         pilotStates: s.pilotStates,
         unlockedTeamIds: s.unlockedTeamIds,
+        savedTeams: s.savedTeams,
+        contestModes: s.contestModes,
         consentCount: s.consentCount,
         myPiece: s.myPiece,
+        surveyAnswers: s.surveyAnswers,
       }),
     },
   ),
