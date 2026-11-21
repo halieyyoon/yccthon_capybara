@@ -1,42 +1,52 @@
 /* [임시 구현 · 규혁 브랜치] 소유: 연서 (globals.css)
-   Material Design 3 토큰. 색은 seed #B4532F(테라코타)로 material-color-utilities SchemeTonalSpot에서 생성.
-   퍼즐 온도 팔레트(fun/balanced/serious)는 SPEC 3.1 비주얼 톤 기준 TonalPalette 값. */
+   디자인 언어: Google Classroom 기반 Material Design 3 — stt.gyuhyeok.com(E:UM 토큰)을 참고.
+   회색 페이지(#f7f9fc) 위 흰 본문 면, 연한 파랑 주요 버튼(#c2e7ff/#004a77), 테두리 카드 12px, 알약 버튼·칩,
+   대화상자 22px, Pretendard 28/20/17/16. 퍼즐 온도 팔레트(fun/balanced/serious)는 On-do 고유 색. */
 
 @import 'tailwindcss';
 
 :root {
   /* light scheme */
-  --md-sys-color-primary: #8f4c34;
+  --md-sys-color-primary: #1a73e8;
   --md-sys-color-on-primary: #ffffff;
-  --md-sys-color-primary-container: #ffdbcf;
-  --md-sys-color-on-primary-container: #72351f;
-  --md-sys-color-secondary: #77574c;
+  --md-sys-color-primary-container: #c2e7ff;
+  --md-sys-color-on-primary-container: #004a77;
+  --md-sys-color-secondary: #1967d2;
   --md-sys-color-on-secondary: #ffffff;
-  --md-sys-color-secondary-container: #ffdbcf;
-  --md-sys-color-on-secondary-container: #5d4036;
-  --md-sys-color-tertiary: #6a5e2f;
+  --md-sys-color-secondary-container: #e8f0fe;
+  --md-sys-color-on-secondary-container: #174ea6;
+  --md-sys-color-tertiary: #a85b00;
   --md-sys-color-on-tertiary: #ffffff;
-  --md-sys-color-tertiary-container: #f3e2a7;
-  --md-sys-color-on-tertiary-container: #51461a;
-  --md-sys-color-error: #ba1a1a;
+  --md-sys-color-tertiary-container: #fef7e0;
+  --md-sys-color-on-tertiary-container: #7a4100;
+  --md-sys-color-error: #b3261e;
   --md-sys-color-on-error: #ffffff;
-  --md-sys-color-error-container: #ffdad6;
-  --md-sys-color-on-error-container: #93000a;
-  --md-sys-color-surface: #fff8f6;
-  --md-sys-color-on-surface: #231917;
-  --md-sys-color-surface-variant: #f5ded7;
-  --md-sys-color-on-surface-variant: #53433e;
+  --md-sys-color-error-container: #fce8e6;
+  --md-sys-color-on-error-container: #b3261e;
+  --md-sys-color-surface: #ffffff;
+  --md-sys-color-on-surface: #202124;
+  --md-sys-color-surface-variant: #f1f3f4;
+  --md-sys-color-on-surface-variant: #5f6368;
   --md-sys-color-surface-container-lowest: #ffffff;
-  --md-sys-color-surface-container-low: #fff1ec;
-  --md-sys-color-surface-container: #fceae5;
-  --md-sys-color-surface-container-high: #f7e4df;
-  --md-sys-color-surface-container-highest: #f1dfd9;
-  --md-sys-color-outline: #85736d;
-  --md-sys-color-outline-variant: #d8c2bb;
-  --md-sys-color-inverse-surface: #392e2b;
-  --md-sys-color-inverse-on-surface: #ffede8;
-  --md-sys-color-inverse-primary: #ffb59c;
-  --md-sys-color-scrim: #000000;
+  --md-sys-color-surface-container-low: #f7f9fc;
+  --md-sys-color-surface-container: #f1f3f4;
+  --md-sys-color-surface-container-high: #eceff1;
+  --md-sys-color-surface-container-highest: #e8eaed;
+  --md-sys-color-outline: #80868b;
+  --md-sys-color-outline-variant: #dadce0;
+  --md-sys-color-inverse-surface: #323232;
+  --md-sys-color-inverse-on-surface: #ffffff;
+  --md-sys-color-inverse-primary: #a8c7fa;
+  --md-sys-color-scrim: #202124;
+
+  --page-bg: #f7f9fc;
+  /* Classroom 수업 카드식 온도 머리띠 */
+  --band-fun: linear-gradient(125deg, #fff4ef, #fde0d4);
+  --band-fun-fg: #9a3b1d;
+  --band-balanced: linear-gradient(125deg, #f0f5ff, #d4e5fc);
+  --band-balanced-fg: #174ea6;
+  --band-serious: linear-gradient(125deg, #e8edf7, #c9d4ea);
+  --band-serious-fg: #1f3560;
 
   /* puzzle temperature palettes (tone 30 / 40 / 80 / 90 / 95) */
   --puzzle-fun-30: #822715;
@@ -63,11 +73,11 @@
   --md-sys-shape-sm: 8px;
   --md-sys-shape-md: 12px;
   --md-sys-shape-lg: 16px;
-  --md-sys-shape-xl: 28px;
+  --md-sys-shape-xl: 22px;
 
   /* motion (M3 emphasized / standard) */
   --md-sys-motion-emphasized: cubic-bezier(0.2, 0, 0, 1);
-  --md-sys-motion-emphasized-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --md-sys-motion-emphasized-decel: cubic-bezier(0.22, 1, 0.36, 1);
   --md-sys-motion-standard: cubic-bezier(0.2, 0, 0, 1);
 
   color-scheme: light;
@@ -75,36 +85,43 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --md-sys-color-primary: #ffb59c;
-    --md-sys-color-on-primary: #55200b;
-    --md-sys-color-primary-container: #72351f;
-    --md-sys-color-on-primary-container: #ffdbcf;
-    --md-sys-color-secondary: #e7bdb0;
-    --md-sys-color-on-secondary: #442a21;
-    --md-sys-color-secondary-container: #5d4036;
-    --md-sys-color-on-secondary-container: #ffdbcf;
-    --md-sys-color-tertiary: #d6c68d;
-    --md-sys-color-on-tertiary: #393005;
-    --md-sys-color-tertiary-container: #51461a;
-    --md-sys-color-on-tertiary-container: #f3e2a7;
-    --md-sys-color-error: #ffb4ab;
-    --md-sys-color-on-error: #690005;
-    --md-sys-color-error-container: #93000a;
-    --md-sys-color-on-error-container: #ffdad6;
-    --md-sys-color-surface: #1a110f;
-    --md-sys-color-on-surface: #f1dfd9;
-    --md-sys-color-surface-variant: #53433e;
-    --md-sys-color-on-surface-variant: #d8c2bb;
-    --md-sys-color-surface-container-lowest: #140c0a;
-    --md-sys-color-surface-container-low: #231917;
-    --md-sys-color-surface-container: #271d1a;
-    --md-sys-color-surface-container-high: #322824;
-    --md-sys-color-surface-container-highest: #3d322f;
-    --md-sys-color-outline: #a08d87;
-    --md-sys-color-outline-variant: #53433e;
-    --md-sys-color-inverse-surface: #f1dfd9;
-    --md-sys-color-inverse-on-surface: #392e2b;
-    --md-sys-color-inverse-primary: #8f4c34;
+    --md-sys-color-primary: #a8c7fa;
+    --md-sys-color-on-primary: #062e6f;
+    --md-sys-color-primary-container: #004a77;
+    --md-sys-color-on-primary-container: #c2e7ff;
+    --md-sys-color-secondary: #a8c7fa;
+    --md-sys-color-on-secondary: #062e6f;
+    --md-sys-color-secondary-container: #1f3760;
+    --md-sys-color-on-secondary-container: #d3e3fd;
+    --md-sys-color-tertiary: #f5c95c;
+    --md-sys-color-on-tertiary: #3d2e00;
+    --md-sys-color-tertiary-container: #3d2e00;
+    --md-sys-color-on-tertiary-container: #f5c95c;
+    --md-sys-color-error: #f2b8b5;
+    --md-sys-color-on-error: #601410;
+    --md-sys-color-error-container: #3d1f1d;
+    --md-sys-color-on-error-container: #f2b8b5;
+    --md-sys-color-surface: #1e1f20;
+    --md-sys-color-on-surface: #e3e3e3;
+    --md-sys-color-surface-variant: #282a2c;
+    --md-sys-color-on-surface-variant: #c4c7c5;
+    --md-sys-color-surface-container-lowest: #1e1f20;
+    --md-sys-color-surface-container-low: #131314;
+    --md-sys-color-surface-container: #282a2c;
+    --md-sys-color-surface-container-high: #2f3133;
+    --md-sys-color-surface-container-highest: #333537;
+    --md-sys-color-outline: #8e918f;
+    --md-sys-color-outline-variant: #444746;
+    --md-sys-color-inverse-surface: #e3e3e3;
+    --md-sys-color-inverse-on-surface: #1f1f1f;
+    --md-sys-color-inverse-primary: #1a73e8;
+    --page-bg: #131314;
+    --band-fun: linear-gradient(125deg, #3a241c, #2e1c16);
+    --band-fun-fg: #ffb59c;
+    --band-balanced: linear-gradient(125deg, #1d2b45, #172540);
+    --band-balanced-fg: #a8c7fa;
+    --band-serious: linear-gradient(125deg, #1f2636, #182031);
+    --band-serious-fg: #c3d1f0;
     color-scheme: dark;
   }
 }
@@ -141,6 +158,7 @@
   --color-inverse-on-surface: var(--md-sys-color-inverse-on-surface);
   --color-inverse-primary: var(--md-sys-color-inverse-primary);
   --color-scrim: var(--md-sys-color-scrim);
+  --color-page: var(--page-bg);
 
   --radius-m3-xs: var(--md-sys-shape-xs);
   --radius-m3-sm: var(--md-sys-shape-sm);
@@ -156,7 +174,7 @@
 }
 
 html {
-  background: var(--md-sys-color-surface);
+  background: var(--page-bg);
   color: var(--md-sys-color-on-surface);
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
@@ -164,27 +182,30 @@ html {
 
 body {
   font-family: var(--font-sans);
-  font-feature-settings: 'tnum' 0;
-  letter-spacing: -0.005em;
+  font-size: 16px;
+  line-height: 1.65;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  -webkit-font-smoothing: antialiased;
   min-height: 100dvh;
 }
 
 /* ── M3 type scale (Korean-tuned line heights) ── */
-@utility display-large { font-size: 57px; line-height: 64px; font-weight: 400; letter-spacing: -0.02em; }
-@utility display-medium { font-size: 45px; line-height: 52px; font-weight: 400; letter-spacing: -0.015em; }
-@utility display-small { font-size: 36px; line-height: 44px; font-weight: 400; letter-spacing: -0.01em; }
-@utility headline-large { font-size: 32px; line-height: 40px; font-weight: 500; letter-spacing: -0.01em; }
-@utility headline-medium { font-size: 28px; line-height: 36px; font-weight: 500; letter-spacing: -0.01em; }
-@utility headline-small { font-size: 24px; line-height: 32px; font-weight: 500; letter-spacing: -0.005em; }
-@utility title-large { font-size: 22px; line-height: 28px; font-weight: 500; }
-@utility title-medium { font-size: 16px; line-height: 24px; font-weight: 600; letter-spacing: 0.005em; }
-@utility title-small { font-size: 14px; line-height: 20px; font-weight: 600; letter-spacing: 0.005em; }
+@utility display-large { font-size: 48px; line-height: 56px; font-weight: 700; letter-spacing: -0.025em; }
+@utility display-medium { font-size: 40px; line-height: 48px; font-weight: 700; letter-spacing: -0.02em; }
+@utility display-small { font-size: 34px; line-height: 40px; font-weight: 700; letter-spacing: -0.02em; }
+@utility headline-large { font-size: 28px; line-height: 36px; font-weight: 700; letter-spacing: -0.02em; }
+@utility headline-medium { font-size: 24px; line-height: 32px; font-weight: 700; letter-spacing: -0.02em; }
+@utility headline-small { font-size: 20px; line-height: 28px; font-weight: 600; letter-spacing: -0.015em; }
+@utility title-large { font-size: 18px; line-height: 26px; font-weight: 600; letter-spacing: -0.01em; }
+@utility title-medium { font-size: 16px; line-height: 24px; font-weight: 600; letter-spacing: -0.01em; }
+@utility title-small { font-size: 14px; line-height: 20px; font-weight: 600; }
 @utility body-large { font-size: 16px; line-height: 26px; font-weight: 400; }
 @utility body-medium { font-size: 14px; line-height: 22px; font-weight: 400; }
-@utility body-small { font-size: 12px; line-height: 18px; font-weight: 400; }
-@utility label-large { font-size: 14px; line-height: 20px; font-weight: 600; letter-spacing: 0.005em; }
-@utility label-medium { font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: 0.02em; }
-@utility label-small { font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.03em; }
+@utility body-small { font-size: 13px; line-height: 19px; font-weight: 400; }
+@utility label-large { font-size: 14px; line-height: 20px; font-weight: 600; }
+@utility label-medium { font-size: 13px; line-height: 18px; font-weight: 500; }
+@utility label-small { font-size: 12px; line-height: 16px; font-weight: 500; }
 @utility tabular { font-variant-numeric: tabular-nums; }
 
 /* ── State layer: hover 8% / focus·pressed 10% (M3) ── */
@@ -282,7 +303,11 @@ input[type='range'].m3-slider::-moz-range-thumb {
   from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: none; }
 }
-.enter { animation: m3-fade-up 360ms var(--md-sys-motion-emphasized-decel) both; }
+.enter { animation: m3-fade-up 420ms var(--md-sys-motion-emphasized-decel) both; }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(24px) scale(0.97); } to { opacity: 1; transform: none; } }
+.dialog-enter { animation: dialog-in 440ms var(--md-sys-motion-emphasized-decel) both; }
+@keyframes page-in { from { opacity: 0; transform: translateX(22px); } to { opacity: 1; transform: none; } }
+.page-enter { animation: page-in 420ms var(--md-sys-motion-emphasized-decel) both; }
 .enter-scale { animation: m3-scale-in 260ms var(--md-sys-motion-emphasized-decel) both; }
 
 @media (prefers-reduced-motion: reduce) {
