@@ -172,14 +172,14 @@ function PieceQuestionScreen({
         </span>
       </header>
       <main key={index} className="page-enter mx-auto flex w-full max-w-xl flex-1 flex-col px-4 pb-6">
-        <p className="mt-2 label-large text-primary">
+        <p className="mt-2 flex items-center gap-1 label-large text-primary">
           <span className="tabular">{q.id}</span> · {section.title}
+          {/* 혜원 v1.1 근거: ‘반영되는 곳’과 문항 근거는 (i) 안에 */}
+          <InfoTip label="이 질문의 근거" align="start">
+            반영되는 곳: {feedsOf(q).join(' · ')}. {basisText(basisOf(q))}
+          </InfoTip>
         </p>
         <h1 className="mt-1 headline-medium">{q.question}</h1>
-        <p className="mt-1 flex items-center gap-1 body-small text-on-surface-variant">
-          반영되는 곳: {feedsOf(q).join(' · ')}
-          <InfoTip label="이 질문의 근거" align="start">{basisText(basisOf(q))}</InfoTip>
-        </p>
 
         {showPiece && (
           <div className="mt-6 grid place-items-center rounded-m3-xl bg-surface py-5">
