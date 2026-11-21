@@ -220,9 +220,11 @@ export interface AvatarTurn {
 }
 
 export interface AvatarMeetingResult {
+  source?: 'gemini' | 'fallback';
   teamId: string;
   contestTitle: string;
   agenda: string;                 // 부여된 공통 안건 (예: "20분 안에 MVP 핵심 기능 1개 합의하기")
+  discussionSummary?: string;     // 아바타들의 제안과 반응. 이전 저장 결과에는 없을 수 있음
   turns: AvatarTurn[];            // 6턴 가상 회의
   consensus: string;              // 합의안
   unresolvedIssues: string[];     // 미해결 쟁점 1~2개
